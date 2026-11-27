@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>WASSIB Pocket Cash Book</title>
+<meta name="theme-color" content="#a3213f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pocket Cash">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,600..800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one thumb-reach column. Today's money on top, two big IN / OUT buttons, the day's entries, and a send bar pinned at the bottom. Entry, send and settings open as full-screen sheets. Same family as the WASSIB Accounting System. */
+:root{
+  --bg:#f5f4f2; --panel:#ffffff; --ink:#1b1d22; --muted:#5d6068; --line:#dddad6; --soft:#ecebe8;
+  --accent:#a3213f; --accent-ink:#ffffff; --accent-soft:#f6e3e8;
+  --in:#1f7a4d; --in-soft:#e2f2e9; --out:#b3261e; --out-soft:#fbe4e2; --warn:#9a6200; --warn-soft:#fbefd6;
+  --field:#fffdf3; --field-line:#d9cf9e; --on-sem:#ffffff;
+  --f-display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141518; --panel:#1c1e22; --ink:#ecebe8; --muted:#a3a5ab; --line:#2f3238; --soft:#24262b;
+  --accent:#e0577a; --accent-ink:#1a0a10; --accent-soft:#3a1c25;
+  --in:#5cc38f; --in-soft:#173326; --out:#f07a70; --out-soft:#3b1b19; --warn:#e2ad4a; --warn-soft:#3a2c12;
+  --field:#22231f; --field-line:#4b4733; --on-sem:#10130f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141518; --panel:#1c1e22; --ink:#ecebe8; --muted:#a3a5ab; --line:#2f3238; --soft:#24262b;
+  --accent:#e0577a; --accent-ink:#1a0a10; --accent-soft:#3a1c25;
+  --in:#5cc38f; --in-soft:#173326; --out:#f07a70; --out-soft:#3b1b19; --warn:#e2ad4a; --warn-soft:#3a2c12;
+  --field:#22231f; --field-line:#4b4733; --on-sem:#10130f; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--f-body);-webkit-tap-highlight-color:transparent;
+  padding-top:env(safe-area-inset-top,0px)}
+.wrap{max-width:560px;margin:0 auto;padding-block:14px 120px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px}
+h1,h2,h3{font-family:var(--f-display);font-stretch:85%;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h1{font-size:22px;font-weight:800}
+h2{font-size:19px;font-weight:800}
+h3{font-size:15px;font-weight:700}
+.eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand .mark{width:38px;height:38px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:800 19px var(--f-display);flex:none}
+.brand small{display:block;font-size:12px;color:var(--muted)}
+.net{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.net i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.net.on{background:var(--in-soft);color:var(--in)} .net.on i{background:var(--in)}
+.net.off{background:var(--warn-soft);color:var(--warn)} .net.off i{background:var(--warn)}
+.iconbtn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;width:40px;height:40px;display:grid;place-items:center;cursor:pointer;flex:none}
+.iconbtn svg{width:20px;height:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;min-width:0}
+.today{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.today div{display:grid;gap:2px;min-width:0}
+.today b{font-family:var(--f-mono);font-size:17px;font-weight:600;overflow-wrap:anywhere}
+.today .ti b{color:var(--in)} .today .to b{color:var(--out)}
+.month{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.big{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.big button{border:0;border-radius:16px;padding:20px 12px;min-height:112px;cursor:pointer;display:grid;gap:4px;justify-items:center;align-content:center;font-family:var(--f-display);font-stretch:85%}
+.big button b{font-size:26px;font-weight:800;line-height:1}
+.big button span{font:500 13px var(--f-body)}
+.big .bin{background:var(--in);color:var(--on-sem)}
+.big .bout{background:var(--out);color:var(--on-sem)}
+.big svg{width:28px;height:28px}
+.alert{border-radius:12px;padding:12px 14px;background:var(--warn-soft);color:var(--ink);font-size:14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.list{display:grid;gap:0}
+.day{font-weight:600;font-size:13px;color:var(--muted);padding:12px 2px 6px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px 12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:6px;cursor:pointer;text-align:left;width:100%;font:inherit;color:inherit}
+.row .dot{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:800 18px var(--f-display)}
+.row.in .dot{background:var(--in-soft);color:var(--in)} .row.out .dot{background:var(--out-soft);color:var(--out)}
+.row .t{min-width:0}
+.row .t b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .t small{display:block;color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .a{text-align:right;font-family:var(--f-mono);font-weight:600;white-space:nowrap}
+.row.in .a{color:var(--in)} .row.out .a{color:var(--out)}
+.row .a small{display:block;font:600 11px var(--f-body);color:var(--muted)}
+.row .a small.unsent{color:var(--warn)}
+.empty{padding:22px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px;font-size:14px}
+.more{justify-self:center}
+/* bottom send bar */
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--panel);border-top:1px solid var(--line);
+  padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.bar .in2{max-width:560px;margin:0 auto;display:flex;gap:10px;align-items:center}
+.bar .info{flex:1;min-width:0;font-size:13px;color:var(--muted)}
+.bar .info b{color:var(--ink);display:block;font-size:14px}
+/* buttons and fields */
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 15px var(--f-body);padding:12px 16px;border-radius:12px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;min-height:46px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.good{background:var(--in);border-color:var(--in);color:var(--on-sem)}
+.btn.danger{color:var(--out)}
+.btn.armed{background:var(--out);border-color:var(--out);color:var(--on-sem)}
+.btn.sm{padding:7px 12px;font-size:13px;min-height:36px;border-radius:9px}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.5}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible,label.btn:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+label.lab{font-weight:600;font-size:13px;display:block;margin-bottom:6px}
+.in{width:100%;border:1px solid var(--field-line);background:var(--field);color:var(--ink);border-radius:10px;padding:11px 12px;font:16px var(--f-body);min-width:0}
+textarea.in{min-height:70px;resize:vertical}
+.amount{display:flex;align-items:stretch;border:2px solid var(--field-line);background:var(--field);border-radius:14px;overflow:hidden}
+.amount:focus-within{border-color:var(--accent)}
+.amount .cur{border:0;border-right:1px solid var(--field-line);background:var(--soft);color:var(--ink);font:800 22px var(--f-display);padding:0 14px;cursor:pointer;min-width:62px}
+.amount input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:600 30px var(--f-mono);padding:12px 14px;text-align:right}
+.amount input:focus{outline:none}
+.words{font-size:12.5px;color:var(--muted);margin-top:6px;min-height:1.2em}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{border:1px solid var(--line);background:var(--panel);color:var(--ink);font:500 14px var(--f-body);padding:10px 13px;border-radius:999px;cursor:pointer}
+.chips button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--panel);font-weight:600}
+.chips.how button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.f{display:grid;gap:0;min-width:0}
+.msg{font-size:14px;margin:0;min-height:1.2em}
+.msg.err{color:var(--out)} .msg.ok{color:var(--in)}
+.hint{font-size:12.5px;color:var(--muted);margin:6px 0 0}
+.photo{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.photo img{width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+/* sheets */
+.sheet{position:fixed;inset:0;z-index:10;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding-top:env(safe-area-inset-top,0px)}
+.sheet .head{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line)}
+.sheet .head .in2{max-width:560px;margin:0 auto;display:flex;align-items:center;gap:10px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.sheet .head h2{flex:1}
+.sheet .head.in{border-bottom:3px solid var(--in)} .sheet .head.out{border-bottom:3px solid var(--out)}
+.sheet .body{max-width:560px;margin:0 auto;padding-block:16px calc(40px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+.sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sum div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:2px;min-width:0}
+.sum b{font-family:var(--f-mono);font-size:16px;overflow-wrap:anywhere}
+.steps{margin:0;padding-left:20px;display:grid;gap:6px;font-size:14px}
+.code{width:100%;font:12px var(--f-mono);min-height:90px;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--soft);color:var(--ink);word-break:break-all}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px;z-index:30;max-width:calc(100% - 32px);text-align:center}
+@media (prefers-reduced-motion:no-preference){.row,.big button,.btn{transition:transform .08s} .big button:active,.btn:active{transform:scale(.98)}}
+</style>
+</head>
+<body>
+<div class="wrap" id="home">
+  <header class="top">
+    <div class="brand"><div class="mark" aria-hidden="true">₦</div><div><h1>Pocket Cash Book</h1><small id="whoLine">WASSIB GLOBAL LIMITED</small></div></div>
+    <div style="display:flex;gap:8px;align-items:center"><span class="net" id="net"><i></i><span>Checking…</span></span>
+      <button class="iconbtn" type="button" id="openSet" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
+  </header>
+
+  <section class="card" aria-labelledby="todayH">
+    <div class="top"><span class="eyebrow" id="todayH">Today</span><span class="muted" style="font-size:13px" id="todayDate"></span></div>
+    <div class="today">
+      <div class="ti"><span class="muted" style="font-size:12px">Money in</span><b id="tIn">₦0</b></div>
+      <div class="to"><span class="muted" style="font-size:12px">Money out</span><b id="tOut">₦0</b></div>
+      <div><span class="muted" style="font-size:12px">Balance</span><b id="tNet">₦0</b></div>
+    </div>
+    <div class="month" id="monthLine"></div>
+  </section>
+
+  <div class="big">
+    <button type="button" class="bin" id="goIn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><b>Money IN</b><span>I received money</span></button>
+    <button type="button" class="bout" id="goOut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg><b>Money OUT</b><span>I spent or paid money</span></button>
+  </div>
+
+  <div class="alert" id="syncAlert" hidden><span id="syncAlertT"></span><button type="button" class="btn sm primary" id="syncAlertB">Send now</button></div>
+
+  <section aria-labelledby="listH">
+    <div class="top"><h3 id="listH">Recent entries</h3><span class="muted" style="font-size:13px" id="countLine"></span></div>
+    <div class="list" id="list"></div>
+    <div style="display:grid"><button type="button" class="btn sm more" id="showMore" hidden>Show older entries</button></div>
+  </section>
+</div>
+
+<div class="bar" id="bar"><div class="in2">
+  <div class="info" id="barInfo"><b>All entries sent</b>Nothing waiting for the books</div>
+  <button type="button" class="btn primary" id="goSend">Send to books</button>
+</div></div>
+
+<!-- ENTRY SHEET -->
+<section class="sheet" id="entry" hidden aria-labelledby="eH">
+  <div class="head" id="eHead"><div class="in2">
+    <button class="iconbtn" type="button" id="eClose" aria-label="Close without saving"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <h2 id="eH">Money out</h2>
+    <button class="btn sm" type="button" id="eSwap">Switch to IN</button>
+  </div></div>
+  <form class="body" id="eForm" autocomplete="off" novalidate>
+    <div>
+      <label class="lab" for="eAmt">How much?</label>
+      <div class="amount"><button type="button" class="cur" id="eCur" aria-label="Change currency">₦</button><input id="eAmt" inputmode="decimal" placeholder="0" aria-describedby="eWords"></div>
+      <div class="words" id="eWords"></div>
+      <div id="eRateW" hidden style="margin-top:8px"><label class="lab" for="eRate">Exchange rate: ₦ for $1</label><input class="in mono" id="eRate" inputmode="decimal"></div>
+    </div>
+    <div>
+      <span class="lab" id="eCatL">What was it for?</span>
+      <div class="chips" id="eCats" role="group" aria-labelledby="eCatL"></div>
+    </div>
+    <div>
+      <span class="lab" id="eHowL">How did the money move?</span>
+      <div class="chips how" id="eHow" role="group" aria-labelledby="eHowL"></div>
+    </div>
+    <div class="f"><label class="lab" for="eParty" id="ePartyL">Paid to (name)</label><input class="in" id="eParty" list="names" placeholder="Person or company, optional"><datalist id="names"></datalist></div>
+    <div class="f"><label class="lab" for="eDesc">Details</label><input class="in" id="eDesc" placeholder="e.g. 2 MT hibiscus from Dawanau"><p class="hint">Optional. A few words help the accountant later.</p></div>
+    <div class="grid2">
+      <div class="f"><label class="lab" for="eDate">Date</label><input class="in" type="date" id="eDate"></div>
+      <div class="f"><label class="lab" for="eRef">Receipt no.</label><input class="in" id="eRef" placeholder="Optional"></div>
+    </div>
+    <div>
+      <span class="lab">Receipt photo</span>
+      <div class="photo"><label class="btn sm" for="ePhoto">Take or choose photo</label><input type="file" id="ePhoto" accept="image/*" capture="environment" hidden><img id="ePhotoImg" alt="Receipt photo" hidden><button type="button" class="btn sm danger" id="ePhotoDel" hidden>Remove photo</button></div>
+    </div>
+    <p class="msg" id="eMsg" role="status"></p>
+    <button type="submit" class="btn primary wide" id="eSave" style="min-height:56px;font-size:17px">Save</button>
+    <button type="button" class="btn danger wide" id="eDel" hidden>Delete this entry</button>
+  </form>
+</section>
+
+<!-- SEND SHEET -->
+<section class="sheet" id="send" hidden aria-labelledby="sH">
+  <div class="head"><div class="in2">
+    <button class="iconbtn" type="button" id="sClose" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <h2 id="sH">Send to the books</h2>
+  </div></div>
+  <div class="body">
+    <div class="sum"><div><span class="muted" style="font-size:12px">Entries</span><b id="sN">0</b></div><div><span class="muted" style="font-size:12px">Money in</span><b id="sIn" style="color:var(--in)">₦0</b></div><div><span class="muted" style="font-size:12px">Money out</span><b id="sOut" style="color:var(--out)">₦0</b></div></div>
+    <div class="card" style="display:grid;gap:10px">
+      <h3>Step 1 · Get the sync code</h3>
+      <button type="button" class="btn primary wide" id="sCopy">Copy sync code</button>
+      <button type="button" class="btn wide" id="sShare" hidden>Share to WhatsApp or email</button>
+      <button type="button" class="btn wide" id="sFile">Save as a file</button>
+      <p class="hint" id="sSize"></p>
+      <textarea class="code" id="sCode" readonly aria-label="Sync code" hidden></textarea>
+    </div>
+    <div class="card" style="display:grid;gap:10px">
+      <h3>Step 2 · Put it in the Accounting System</h3>
+      <ol class="steps">
+        <li>Open the WASSIB Accounting System and go to <b>Cash book</b>.</li>
+        <li>In <b>Pocket inbox</b>, paste the code or choose the file.</li>
+        <li>Press <b>Add to cash book</b>. Entries already there are skipped, so sending twice is safe.</li>
+      </ol>
+      <a class="btn good wide" id="sOpen" href="https://claude.ai/artifact/4gYorMJRNgpHApYUKUaHZ7#cashbook" target="_blank" rel="noopener">Open the Accounting System</a>
+      <p class="hint" id="sOffline" hidden>You are offline. Copy or save the code now, and open the Accounting System when you have network.</p>
+    </div>
+    <p class="msg" id="sMsg" role="status"></p>
+    <button type="button" class="btn wide" id="sAll">Include entries already sent (send everything again)</button>
+  </div>
+</section>
+
+<!-- SETTINGS SHEET -->
+<section class="sheet" id="settings" hidden aria-labelledby="stH">
+  <div class="head"><div class="in2">
+    <button class="iconbtn" type="button" id="stClose" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <h2 id="stH">Settings</h2>
+  </div></div>
+  <div class="body">
+    <div class="f"><label class="lab" for="stName">Your name</label><input class="in" id="stName" placeholder="Who is recording on this phone"><p class="hint">Shown on every entry so the accountant knows who recorded it.</p></div>
+    <div class="f"><label class="lab" for="stUrl">Accounting System link</label><input class="in" id="stUrl" inputmode="url"></div>
+    <div class="f"><label class="lab" for="stRate">Usual dollar rate (₦ for $1)</label><input class="in mono" id="stRate" inputmode="decimal"></div>
+    <div class="card" style="display:grid;gap:10px">
+      <h3>Backup</h3>
+      <p class="hint" style="margin:0">Your entries live on this phone only until you send them. Save a backup before you clear the browser or change phones.</p>
+      <button type="button" class="btn wide" id="stBackup">Save a backup file</button>
+      <label class="btn wide" for="stRestore">Restore from a backup file</label><input type="file" id="stRestore" accept=".json,.wassib,application/json,text/plain" hidden>
+      <button type="button" class="btn danger wide" id="stClean">Remove sent entries older than 60 days</button>
+    </div>
+    <p class="msg" id="stMsg" role="status"></p>
+    <p class="hint" id="stVer">WASSIB Pocket Cash Book · version 1.0 · works without internet after the first visit.</p>
+  </div>
+</section>
+
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+(function(){
+"use strict";
+const VERSION = "1.0";
+const KEY = "wassibPocket.v1";
+const DEFAULT_URL = "https://claude.ai/artifact/4gYorMJRNgpHApYUKUaHZ7";
+
+/* Categories map to the Accounting System's cost centres and chart of accounts.
+   "Not sure" leaves the entry for the accountant to apportion. */
+const CATS = {
+  out: [
+    ["buy","Buying produce","TRD","5010"],
+    ["adv","Advance to supplier","PRC","1150"],
+    ["haul","Truck / haulage","LOG","5040"],
+    ["labour","Loading & labour","WHS","5050"],
+    ["bags","Bags & packaging","WHS","5030"],
+    ["clean","Cleaning & sorting","WHS","5020"],
+    ["port","Port & clearing","LOG","5060"],
+    ["travel","Transport & travel","ADM","6030"],
+    ["fuel","Fuel & power","ADM","6120"],
+    ["phone","Phone & data","ADM","6040"],
+    ["office","Office & supplies","ADM","6090"],
+    ["rent","Rent & warehouse","WHS","6020"],
+    ["salary","Salary & wages","STF","6010"],
+    ["permit","Permits & fees","ADM","6070"],
+    ["bank","Bank charges","FIN","6060"],
+    ["loanout","Loan repaid","DIR","2200"],
+    ["other","Not sure / other","",""]
+  ],
+  in: [
+    ["sale","Sale (paid now)","TRD","4020"],
+    ["custpay","Customer paid invoice","CUS","1100"],
+    ["custadv","Customer advance","CUS","2020"],
+    ["capital","Capital from director","DIR","3010"],
+    ["loanin","Loan received","DIR","2200"],
+    ["othinc","Other income","FIN","4200"],
+    ["other","Not sure / other","",""]
+  ]
+};
+const HOW = [
+  ["cash","Cash","Cash"],
+  ["transfer","Bank transfer","Bank transfer"],
+  ["pos","POS","POS"],
+  ["opay","OPay / mobile","OPay / mobile money"]
+];
+
+/* ---------- state ---------- */
+let S = load();
+function blank(){ return {entries:[], settings:{name:"", url:DEFAULT_URL, rate:"", device:"d"+Math.random().toString(36).slice(2,8)}}; }
+function load(){
+  try { const raw = localStorage.getItem(KEY); if (raw) { const s = JSON.parse(raw); const b = blank(); s.settings = Object.assign(b.settings, s.settings || {}); s.entries = Array.isArray(s.entries) ? s.entries : []; return s; } } catch(e){}
+  return blank();
+}
+let storageOk = true;
+function save(){
+  try { localStorage.setItem(KEY, JSON.stringify(S)); storageOk = true; }
+  catch(e){ storageOk = false; toast("This phone's browser storage is full or blocked. Save a backup now."); }
+}
+
+/* photos: IndexedDB (too big for localStorage) */
+const PH = { h:null,
+  open(){ return new Promise(res => { try { const r = indexedDB.open("wassibPocketPhotos", 1); r.onupgradeneeded = () => r.result.createObjectStore("p"); r.onsuccess = () => { this.h = r.result; res(true); }; r.onerror = () => res(false); } catch(e){ res(false); } }); },
+  op(mode, fn){ return new Promise((res, rej) => { if (!this.h) return rej(new Error("no db")); const tx = this.h.transaction("p", mode); const q = fn(tx.objectStore("p")); tx.oncomplete = () => res(q && q.result); tx.onerror = () => rej(tx.error); }); },
+  put(id, v){ return this.op("readwrite", s => s.put(v, id)); },
+  get(id){ return this.op("readonly", s => s.get(id)).catch(() => null); },
+  del(id){ return this.op("readwrite", s => s.delete(id)).catch(() => null); }
+};
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num = v => { const n = parseFloat(String(v ?? "").replace(/[,\s₦$]/g, "")); return isFinite(n) ? n : 0; };
+const r2 = n => Math.round(n * 100) / 100;
+const pad = n => String(n).padStart(2, "0");
+const ymd = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const today = () => ymd(new Date());
+const hm = () => { const d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+function fmtDay(d){ if (d === today()) return "Today"; const y = new Date(); y.setDate(y.getDate() - 1); if (d === ymd(y)) return "Yesterday"; const dt = new Date(d + "T12:00:00"); return DAYS[dt.getDay()] + " " + dt.getDate() + " " + MON[dt.getMonth()] + " " + dt.getFullYear(); }
+const nf0 = new Intl.NumberFormat("en-NG", {maximumFractionDigits:0});
+const nf2 = new Intl.NumberFormat("en-NG", {minimumFractionDigits:2, maximumFractionDigits:2});
+function money(v, c){ c = c || "NGN"; const sym = c === "USD" ? "$" : "₦"; const a = Math.abs(v); const s = sym + (c === "USD" || a % 1 ? nf2 : nf0).format(a); return v < 0 ? "−" + s : s; }
+function newId(){ return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function catOf(dir, key){ return (CATS[dir] || []).find(c => c[0] === key); }
+function catLabel(e){ const c = catOf(e.dir, e.cat); return c ? c[1] : "Other"; }
+function howLabel(k){ const h = HOW.find(x => x[0] === k); return h ? h[1] : "Cash"; }
+let toastT;
+function toast(m){ const t = $("toast"); t.textContent = m; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2800); }
+function arm(btn, label, fn){
+  if (btn.dataset.armed === "1") { btn.dataset.armed = ""; btn.classList.remove("armed"); btn.textContent = btn.dataset.orig; fn(); return; }
+  btn.dataset.orig = btn.textContent; btn.dataset.armed = "1"; btn.classList.add("armed"); btn.textContent = label;
+  setTimeout(() => { if (btn.dataset.armed === "1") { btn.dataset.armed = ""; btn.classList.remove("armed"); btn.textContent = btn.dataset.orig; } }, 4000);
+}
+/* amount in words, for checking big numbers at a glance */
+function words(n){
+  n = Math.floor(n); if (!n) return "";
+  const o = ["","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"];
+  const t = ["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];
+  const h = x => { let s = ""; if (x >= 100) { s += o[Math.floor(x/100)] + " hundred"; x %= 100; if (x) s += " and "; } if (x >= 20) { s += t[Math.floor(x/10)]; if (x % 10) s += "-" + o[x % 10]; } else if (x) s += o[x]; return s; };
+  const parts = []; [[1e9,"billion"],[1e6,"million"],[1e3,"thousand"]].forEach(([v,w]) => { if (n >= v) { parts.push(h(Math.floor(n / v)) + " " + w); n %= v; } });
+  if (n) parts.push(h(n)); return parts.join(", ");
+}
+
+/* ---------- home ---------- */
+let showAll = false;
+function sorted(){ return S.entries.slice().sort((a,b) => (b.date || "").localeCompare(a.date || "") || (b.time || "").localeCompare(a.time || "") || (b.createdAt || 0) - (a.createdAt || 0)); }
+function unsent(){ return S.entries.filter(e => !e.sentAt || (e.updatedAt || 0) > e.sentAt); }
+function totals(list){ const o = {NGN:{i:0,o:0}, USD:{i:0,o:0}}; list.forEach(e => { const c = o[e.ccy] || (o[e.ccy] = {i:0,o:0}); c[e.dir === "in" ? "i" : "o"] += num(e.amount); }); return o; }
+function render(){
+  const t = today();
+  $("todayDate").textContent = fmtDay(t) === "Today" ? (() => { const d = new Date(); return DAYS[d.getDay()] + " " + d.getDate() + " " + MON[d.getMonth()]; })() : "";
+  const td = totals(S.entries.filter(e => e.date === t)).NGN;
+  $("tIn").textContent = money(td.i); $("tOut").textContent = money(td.o);
+  const net = r2(td.i - td.o); $("tNet").textContent = money(net); $("tNet").style.color = net < 0 ? "var(--out)" : "";
+  const tm = totals(S.entries.filter(e => (e.date || "").slice(0,7) === t.slice(0,7)));
+  $("monthLine").textContent = "This month: in " + money(tm.NGN.i) + ", out " + money(tm.NGN.o) +
+    (tm.USD.i || tm.USD.o ? " · Dollars: in " + money(tm.USD.i, "USD") + ", out " + money(tm.USD.o, "USD") : "");
+  $("whoLine").textContent = S.settings.name ? "Recording as " + S.settings.name : "WASSIB GLOBAL LIMITED";
+
+  const rows = sorted(); const cut = showAll ? rows : rows.filter((e, i) => i < 30);
+  $("countLine").textContent = rows.length ? rows.length + " on this phone" : "";
+  let html = "", last = null;
+  cut.forEach(e => {
+    if (e.date !== last) { last = e.date; const d = totals(rows.filter(x => x.date === e.date)).NGN;
+      html += '<div class="day"><span>' + esc(fmtDay(e.date)) + '</span><span class="mono">in ' + esc(money(d.i)) + ' · out ' + esc(money(d.o)) + '</span></div>'; }
+    const pending = !e.sentAt || (e.updatedAt || 0) > e.sentAt;
+    const sub = [howLabel(e.how), e.party, e.desc].filter(Boolean).join(" · ");
+    html += '<button type="button" class="row ' + (e.dir === "in" ? "in" : "out") + '" data-id="' + esc(e.id) + '">' +
+      '<span class="dot" aria-hidden="true">' + (e.dir === "in" ? "+" : "−") + '</span>' +
+      '<span class="t"><b>' + esc(catLabel(e)) + (e.hasPhoto ? ' <span class="muted" style="font-weight:400">· photo</span>' : '') + '</b><small>' + esc(e.time || "") + (sub ? " · " + esc(sub) : "") + '</small></span>' +
+      '<span class="a">' + (e.dir === "in" ? "+" : "−") + esc(money(num(e.amount), e.ccy)) + '<small class="' + (pending ? "unsent" : "") + '">' + (pending ? "Not sent" : "Sent ✓") + '</small></span></button>';
+  });
+  $("list").innerHTML = html || '<div class="empty">No entries yet. Press <b>Money IN</b> or <b>Money OUT</b> the moment money moves. It saves on this phone, even without network.</div>';
+  $("showMore").hidden = showAll || rows.length <= 30;
+
+  const u = unsent();
+  if (u.length) { const ut = totals(u).NGN; $("barInfo").innerHTML = '<b>' + u.length + ' entr' + (u.length === 1 ? "y" : "ies") + ' not sent yet</b>in ' + esc(money(ut.i)) + ' · out ' + esc(money(ut.o)); }
+  else $("barInfo").innerHTML = '<b>' + (S.entries.length ? "All entries sent" : "Nothing to send yet") + '</b>' + (S.entries.length ? "The books have everything on this phone" : "Entries you save wait here");
+  $("goSend").disabled = !S.entries.length;
+  netState();
+}
+function netState(){
+  const on = navigator.onLine, n = $("net"), u = unsent().length;
+  n.className = "net " + (on ? "on" : "off"); n.querySelector("span").textContent = on ? "Online" : "Offline · saving on phone";
+  $("syncAlert").hidden = !(on && u);
+  $("syncAlertT").textContent = "You have network. Send " + u + " entr" + (u === 1 ? "y" : "ies") + " to the books.";
+}
+window.addEventListener("online", () => { netState(); if (unsent().length) toast("Back online. Your entries are ready to send."); });
+window.addEventListener("offline", netState);
+$("list").addEventListener("click", e => { const b = e.target.closest(".row"); if (b) openEntry(null, S.entries.find(x => x.id === b.dataset.id)); });
+$("showMore").onclick = () => { showAll = true; render(); };
+
+/* ---------- entry sheet ---------- */
+let ed = null; /* working copy */
+let photoData = null, photoChanged = false;
+function openSheet(id){ ["entry","send","settings"].forEach(s => $(s).hidden = s !== id); $("home").hidden = $("bar").hidden = !!id; window.scrollTo(0, 0); if (id) { try { history.pushState({sheet:id}, ""); } catch(e){} } }
+function closeSheets(){ ["entry","send","settings"].forEach(s => $(s).hidden = true); $("home").hidden = $("bar").hidden = false; render(); }
+window.addEventListener("popstate", () => { if (!$("entry").hidden || !$("send").hidden || !$("settings").hidden) closeSheets(); });
+function back(){ try { if (history.state && history.state.sheet) { history.back(); return; } } catch(e){} closeSheets(); }
+
+function openEntry(dir, e){
+  ed = e ? JSON.parse(JSON.stringify(e)) : {id:newId(), dir, date:today(), time:hm(), amount:"", ccy:"NGN", rate:S.settings.rate || "", how:"cash", cat:"", party:"", desc:"", ref:"", hasPhoto:false};
+  photoData = null; photoChanged = false;
+  $("eAmt").value = ed.amount ? String(ed.amount) : ""; $("eRate").value = ed.rate || ""; $("eParty").value = ed.party || ""; $("eDesc").value = ed.desc || ""; $("eDate").value = ed.date; $("eRef").value = ed.ref || "";
+  $("eMsg").textContent = ""; $("eMsg").className = "msg"; $("eDel").hidden = !e; $("eSave").textContent = e ? "Save changes" : "Save";
+  $("ePhoto").value = ""; showPhoto(null);
+  if (e && e.hasPhoto) PH.get(e.id).then(d => { if (d && ed && ed.id === e.id) { photoData = d; showPhoto(d); } });
+  names(); applyDir(); openSheet("entry");
+  if (!e) setTimeout(() => $("eAmt").focus(), 80);
+}
+function applyDir(){
+  const isIn = ed.dir === "in";
+  $("eH").textContent = isIn ? "Money in" : "Money out"; $("eHead").className = "head " + (isIn ? "in" : "out");
+  $("eSwap").textContent = isIn ? "Switch to OUT" : "Switch to IN";
+  $("eCatL").textContent = isIn ? "What was it for?" : "What did you spend on?";
+  $("ePartyL").textContent = isIn ? "Received from (name)" : "Paid to (name)";
+  $("eHow").previousElementSibling.textContent = isIn ? "How did you receive it?" : "How did you pay?";
+  if (!catOf(ed.dir, ed.cat)) ed.cat = "";
+  $("eCats").innerHTML = CATS[ed.dir].map(c => '<button type="button" data-k="' + c[0] + '" aria-pressed="' + (ed.cat === c[0]) + '">' + esc(c[1]) + '</button>').join("");
+  $("eHow").innerHTML = HOW.map(h => '<button type="button" data-k="' + h[0] + '" aria-pressed="' + (ed.how === h[0]) + '">' + esc(h[1]) + '</button>').join("");
+  $("eCur").textContent = ed.ccy === "USD" ? "$" : "₦"; $("eRateW").hidden = ed.ccy !== "USD"; amtWords();
+}
+function amtWords(){ const v = num($("eAmt").value); $("eWords").textContent = v ? (ed.ccy === "USD" ? "US dollars " : "Naira ") + words(v) + (ed.ccy === "USD" && num($("eRate").value) ? " · about " + money(v * num($("eRate").value)) : "") : ""; }
+$("eAmt").addEventListener("input", amtWords); $("eRate").addEventListener("input", amtWords);
+$("eCats").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; ed.cat = b.dataset.k; [...$("eCats").children].forEach(x => x.setAttribute("aria-pressed", String(x === b))); });
+$("eHow").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; ed.how = b.dataset.k; [...$("eHow").children].forEach(x => x.setAttribute("aria-pressed", String(x === b))); });
+$("eSwap").onclick = () => { ed.dir = ed.dir === "in" ? "out" : "in"; ed.cat = ""; applyDir(); };
+$("eCur").onclick = () => { ed.ccy = ed.ccy === "USD" ? "NGN" : "USD"; if (ed.ccy === "USD" && !$("eRate").value) $("eRate").value = S.settings.rate || ""; applyDir(); };
+$("eClose").onclick = back;
+$("goIn").onclick = () => openEntry("in"); $("goOut").onclick = () => openEntry("out");
+function names(){ const set = new Set(S.entries.map(e => (e.party || "").trim()).filter(Boolean)); $("names").innerHTML = [...set].slice(0, 200).map(n => '<option value="' + esc(n) + '">').join(""); }
+
+/* photo: shrink on the phone so it syncs quickly */
+function showPhoto(d){ $("ePhotoImg").hidden = !d; $("ePhotoDel").hidden = !d; if (d) $("ePhotoImg").src = d; else $("ePhotoImg").removeAttribute("src"); }
+$("ePhoto").addEventListener("change", async () => {
+  const f = $("ePhoto").files[0]; if (!f) return;
+  $("eMsg").className = "msg"; $("eMsg").textContent = "Preparing photo…";
+  try { photoData = await shrink(f, 1280, 0.68); photoChanged = true; showPhoto(photoData); $("eMsg").textContent = ""; }
+  catch(err){ $("eMsg").className = "msg err"; $("eMsg").textContent = "That photo could not be read. Try another one."; }
+});
+$("ePhotoDel").onclick = () => { photoData = null; photoChanged = true; showPhoto(null); $("ePhoto").value = ""; };
+function shrink(file, max, q){
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => { const s = Math.min(1, max / Math.max(img.width, img.height)); const c = document.createElement("canvas");
+      c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg", q)); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("bad image")); };
+    img.src = url;
+  });
+}
+
+$("eForm").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const m = $("eMsg"); m.className = "msg err";
+  const amount = r2(num($("eAmt").value));
+  if (!(amount > 0)) { m.textContent = "Type the amount first."; $("eAmt").focus(); return; }
+  if (!ed.cat) { m.textContent = "Tap what it was for. Choose “Not sure / other” if you don't know."; return; }
+  const rate = num($("eRate").value);
+  if (ed.ccy === "USD" && !(rate > 0)) { m.textContent = "Type the dollar rate (₦ for $1)."; $("eRate").focus(); return; }
+  if (!$("eDate").value) { m.textContent = "Choose the date."; return; }
+  const old = S.entries.find(x => x.id === ed.id);
+  const rec = Object.assign({}, ed, {amount, rate: ed.ccy === "USD" ? rate : 1, date:$("eDate").value, party:$("eParty").value.trim(), desc:$("eDesc").value.trim(), ref:$("eRef").value.trim(),
+    by:(old && old.by) || S.settings.name || "", createdAt:(old && old.createdAt) || Date.now(), updatedAt:Date.now()});
+  if (photoChanged) {
+    if (photoData) { try { await PH.put(rec.id, photoData); rec.hasPhoto = true; } catch(e){ rec.hasPhoto = false; toast("Saved, but the photo could not be stored on this phone."); } }
+    else { await PH.del(rec.id); rec.hasPhoto = false; }
+  }
+  if (ed.ccy === "USD" && rate) S.settings.rate = rate;
+  if (old) Object.assign(old, rec); else S.entries.push(rec);
+  save(); back();
+  toast((rec.dir === "in" ? "Money in " : "Money out ") + money(amount, rec.ccy) + " saved" + (navigator.onLine ? "" : " on this phone"));
+});
+$("eDel").onclick = function(){ arm(this, "Tap again to delete", async () => {
+  const id = ed.id; S.entries = S.entries.filter(x => x.id !== id); await PH.del(id); save(); back(); toast("Entry deleted from this phone");
+}); };
+
+/* ---------- send ---------- */
+let sendAll = false, lastCode = "";
+function toBook(e){
+  /* shape the Accounting System's cash book expects (collection "cash") */
+  const c = catOf(e.dir, e.cat) || ["other","Other","",""];
+  const usd = e.ccy === "USD";
+  const channel = e.how === "cash" ? "1010" : usd ? "1030" : "1020";
+  const how = HOW.find(h => h[0] === e.how) || HOW[0];
+  return {id:e.id, date:e.date, time:e.time || "", dir:e.dir, amount:num(e.amount), ccy:e.ccy || "NGN", rate: usd ? num(e.rate) : 1,
+    channel, method: usd && e.how !== "cash" ? "SWIFT / telegraphic transfer" : how[2], ref:e.ref || "", party:e.party || "",
+    desc: e.desc ? c[1] + ": " + e.desc : c[1], cat:c[0], catLabel:c[1], cc:c[2], acc:c[3], by:e.by || S.settings.name || "",
+    createdAt:e.createdAt || Date.now(), updatedAt:e.updatedAt || Date.now()};
+}
+async function buildPack(){
+  const list = sendAll ? sorted() : unsent();
+  const entries = [];
+  for (const e of list) { const b = toBook(e); if (e.hasPhoto) { const d = await PH.get(e.id); if (d) b.photo = {name:"receipt-" + e.date + "-" + e.id.slice(-5) + ".jpg", type:"image/jpeg", data:d}; } entries.push(b); }
+  const pack = {app:"wassib-pocket-cashbook", v:1, device:S.settings.device, by:S.settings.name || "", sentAt:Date.now(), entries};
+  const json = JSON.stringify(pack);
+  const b64 = btoa(unescape(encodeURIComponent(json)));
+  return {list, code:"WASSIB-POCKET:" + b64, json};
+}
+function markSent(list){ const t = Date.now(); list.forEach(e => { const x = S.entries.find(y => y.id === e.id); if (x) x.sentAt = Math.max(t, x.updatedAt || 0); }); save(); }
+async function openSend(){
+  openSheet("send"); await refreshSend();
+}
+async function refreshSend(){
+  const list = sendAll ? sorted() : unsent(); const t = totals(list).NGN;
+  $("sN").textContent = list.length; $("sIn").textContent = money(t.i); $("sOut").textContent = money(t.o);
+  $("sAll").textContent = sendAll ? "Send only entries not sent yet" : "Include entries already sent (send everything again)";
+  $("sOffline").hidden = navigator.onLine; $("sCode").hidden = true; $("sMsg").textContent = ""; $("sMsg").className = "msg";
+  const url = (S.settings.url || DEFAULT_URL).trim(); $("sOpen").href = /^https:\/\//.test(url) ? url.replace(/#.*$/, "") + "#cashbook" : DEFAULT_URL + "#cashbook";
+  const dis = !list.length; ["sCopy","sShare","sFile"].forEach(id => $(id).disabled = dis);
+  $("sSize").textContent = dis ? "Nothing new to send. Every entry on this phone has been sent." : "Preparing…";
+  if (dis) return;
+  const p = await buildPack(); lastCode = p.code;
+  const kb = Math.round(p.code.length / 1024), ph = p.list.filter(e => e.hasPhoto).length;
+  $("sSize").textContent = "Sync code: " + (kb < 1 ? "under 1" : kb) + " KB" + (ph ? " · includes " + ph + " receipt photo" + (ph > 1 ? "s" : "") : "") + (kb > 900 ? ". It is large: “Save as a file” or Share works better than copy." : ".");
+  let canFile = false; try { canFile = !!(navigator.canShare && navigator.canShare({files:[new File(["x"], "x.wassib", {type:"text/plain"})]})); } catch(e){}
+  $("sShare").hidden = !(navigator.share);
+  $("sShare").dataset.file = canFile ? "1" : "";
+}
+$("goSend").onclick = openSend; $("syncAlertB").onclick = openSend; $("sClose").onclick = back;
+$("sAll").onclick = () => { sendAll = !sendAll; refreshSend(); };
+function fileName(){ const d = new Date(); return "pocket-cashbook-" + (S.settings.name || "phone").replace(/[^a-z0-9]+/gi, "-").toLowerCase() + "-" + ymd(d) + "-" + pad(d.getHours()) + pad(d.getMinutes()) + ".wassib"; }
+$("sCopy").onclick = async () => {
+  const list = sendAll ? sorted() : unsent(); const code = lastCode; if (!code) return;
+  try { await navigator.clipboard.writeText(code); markSent(list); done("Copied. Now open the Accounting System and paste it in the Pocket inbox."); }
+  catch(e){ const t = $("sCode"); t.hidden = false; t.value = code; t.focus(); t.select(); $("sMsg").className = "msg"; $("sMsg").textContent = "Copy did not work here. The code is selected below: press and hold, then Copy. It counts as sent once you paste it in the books."; markSent(list); }
+};
+$("sFile").onclick = () => {
+  const list = sendAll ? sorted() : unsent(); if (!lastCode) return;
+  const blob = new Blob([lastCode], {type:"text/plain"}); const u = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = u; a.download = fileName(); document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 8000);
+  markSent(list); done("File saved to Downloads. In the Accounting System, choose this file in the Pocket inbox.");
+};
+$("sShare").onclick = async () => {
+  const list = sendAll ? sorted() : unsent(); if (!lastCode) return;
+  try {
+    if ($("sShare").dataset.file) await navigator.share({files:[new File([lastCode], fileName(), {type:"text/plain"})], title:"WASSIB pocket cash book"});
+    else await navigator.share({title:"WASSIB pocket cash book", text:lastCode});
+    markSent(list); done("Shared. Open it on the computer and put it in the Accounting System's Pocket inbox.");
+  } catch(e){ if (e && e.name === "AbortError") return; $("sMsg").className = "msg err"; $("sMsg").textContent = "Sharing did not work. Use Copy or Save as a file."; }
+};
+function done(t){ $("sMsg").className = "msg ok"; $("sMsg").textContent = t; render(); }
+
+/* ---------- settings ---------- */
+$("openSet").onclick = () => { $("stName").value = S.settings.name || ""; $("stUrl").value = S.settings.url || DEFAULT_URL; $("stRate").value = S.settings.rate || ""; $("stMsg").textContent = ""; openSheet("settings"); };
+$("stClose").onclick = back;
+$("stName").addEventListener("change", () => { S.settings.name = $("stName").value.trim(); save(); ok("Name saved"); });
+$("stUrl").addEventListener("change", () => { const v = $("stUrl").value.trim(); if (v && !/^https:\/\//.test(v)) { err("The link must start with https://"); return; } S.settings.url = v || DEFAULT_URL; save(); ok("Link saved"); });
+$("stRate").addEventListener("change", () => { S.settings.rate = num($("stRate").value) || ""; save(); ok("Rate saved"); });
+function ok(t){ $("stMsg").className = "msg ok"; $("stMsg").textContent = t; }
+function err(t){ $("stMsg").className = "msg err"; $("stMsg").textContent = t; }
+$("stBackup").onclick = async () => {
+  const photos = {}; for (const e of S.entries) if (e.hasPhoto) { const d = await PH.get(e.id); if (d) photos[e.id] = d; }
+  const blob = new Blob([JSON.stringify({app:"wassib-pocket-backup", v:1, savedAt:Date.now(), state:S, photos})], {type:"application/json"});
+  const u = URL.createObjectURL(blob), a = document.createElement("a"); a.href = u; a.download = "pocket-cashbook-backup-" + today() + ".json"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 8000);
+  ok("Backup saved to Downloads. Keep it somewhere safe, like Google Drive.");
+};
+$("stRestore").addEventListener("change", async () => {
+  const f = $("stRestore").files[0]; if (!f) return;
+  try { const d = JSON.parse(await f.text()); if (d.app !== "wassib-pocket-backup" || !d.state || !Array.isArray(d.state.entries)) throw 0;
+    let added = 0; for (const e of d.state.entries) { if (!e || !e.id || S.entries.some(x => x.id === e.id)) continue; S.entries.push(e); added++; if (d.photos && d.photos[e.id]) { try { await PH.put(e.id, d.photos[e.id]); } catch(x){} } }
+    if (!S.settings.name && d.state.settings && d.state.settings.name) S.settings.name = d.state.settings.name;
+    save(); ok("Restored " + added + " entr" + (added === 1 ? "y" : "ies") + ". Entries already on this phone were kept as they are."); }
+  catch(e){ err("That file is not a Pocket Cash Book backup."); }
+  $("stRestore").value = "";
+});
+$("stClean").onclick = function(){ arm(this, "Tap again to remove", async () => {
+  const lim = new Date(); lim.setDate(lim.getDate() - 60); const cut = ymd(lim);
+  const gone = S.entries.filter(e => e.sentAt && (e.updatedAt || 0) <= e.sentAt && e.date < cut);
+  for (const e of gone) await PH.del(e.id);
+  S.entries = S.entries.filter(e => !gone.includes(e)); save(); ok("Removed " + gone.length + " old sent entr" + (gone.length === 1 ? "y" : "ies") + ". The books still have them.");
+}); };
+
+/* ---------- boot ---------- */
+PH.open().then(render);
+render();
+if (!storageOk) toast("This browser is not keeping data. Open the Pocket Cash Book from its web link, not a private tab.");
+try { localStorage.setItem(KEY + ".probe", "1"); localStorage.removeItem(KEY + ".probe"); } catch(e){ toast("This browser is not keeping data. Open it in Chrome or Safari, not a private tab."); }
+/* offline support and self-update: works when served over https or localhost */
+if ("serviceWorker" in navigator && /^(https:|http:\/\/(localhost|127\.0\.0\.1))/.test(location.href)) {
+  navigator.serviceWorker.register("sw.js").then(reg => {
+    reg.addEventListener("updatefound", () => { const w = reg.installing; if (!w) return; w.addEventListener("statechange", () => { if (w.state === "installed" && navigator.serviceWorker.controller) toast("A new version is ready. Close and reopen the app to use it."); }); });
+    if (navigator.onLine) reg.update().catch(() => {});
+  }).catch(() => {});
+}
+/* ask the browser to keep this data even when the phone is low on space */
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+})();
+</script>
+</body>
+</html>
