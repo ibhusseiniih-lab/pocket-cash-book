@@ -122,7 +122,23 @@ textarea.in{min-height:70px;resize:vertical}
 .msg.err{color:var(--out)} .msg.ok{color:var(--in)}
 .hint{font-size:12.5px;color:var(--muted);margin:6px 0 0}
 .photo{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.photo img{width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+.files{display:grid;gap:8px;margin-top:10px}
+.file{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:10px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}
+.file .th{width:48px;height:48px;border-radius:8px;background:var(--soft);display:grid;place-items:center;overflow:hidden;font:700 11px var(--f-mono);color:var(--muted);letter-spacing:.03em}
+.file .th img{width:100%;height:100%;object-fit:cover}
+.file .nm{min-width:0}
+.file .nm b{display:block;font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file .nm small{color:var(--muted);font-size:12px}
+.file .acts{display:flex;gap:6px}
+.viewlink{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px;cursor:pointer;width:100%;text-align:left;font:inherit;color:inherit}
+.viewlink svg{width:24px;height:24px;color:var(--accent)}
+.viewlink b{display:block;font-weight:600}
+.viewlink small{color:var(--muted);font-size:12.5px}
+.dates{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tot{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tot div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;gap:2px;min-width:0}
+.tot b{font-family:var(--f-mono);font-size:16px;overflow-wrap:anywhere}
+.dl{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 /* sheets */
 .sheet{position:fixed;inset:0;z-index:10;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;
   padding-top:env(safe-area-inset-top,0px)}
@@ -162,6 +178,8 @@ textarea.in{min-height:70px;resize:vertical}
     <button type="button" class="bin" id="goIn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><b>Money IN</b><span>I received money</span></button>
     <button type="button" class="bout" id="goOut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14"/></svg><b>Money OUT</b><span>I spent or paid money</span></button>
   </div>
+
+  <button type="button" class="viewlink" id="goView"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span><b>Entries &amp; reports</b><small>See entries for any dates · download PDF or Excel</small></span><span class="muted" aria-hidden="true">›</span></button>
 
   <div class="alert" id="syncAlert" hidden><span id="syncAlertT"></span><button type="button" class="btn sm primary" id="syncAlertB">Send now</button></div>
 
@@ -206,13 +224,48 @@ textarea.in{min-height:70px;resize:vertical}
       <div class="f"><label class="lab" for="eRef">Receipt no.</label><input class="in" id="eRef" placeholder="Optional"></div>
     </div>
     <div>
-      <span class="lab">Receipt photo</span>
-      <div class="photo"><label class="btn sm" for="ePhoto">Take or choose photo</label><input type="file" id="ePhoto" accept="image/*" capture="environment" hidden><img id="ePhotoImg" alt="Receipt photo" hidden><button type="button" class="btn sm danger" id="ePhotoDel" hidden>Remove photo</button></div>
+      <span class="lab">Supporting documents</span>
+      <div class="photo"><label class="btn sm" for="ePhoto">Take a photo</label><input type="file" id="ePhoto" accept="image/*" capture="environment" hidden>
+        <label class="btn sm" for="eFiles">Attach files</label><input type="file" id="eFiles" multiple hidden></div>
+      <p class="hint">Receipts, invoices, waybills, PDFs, Word, Excel or any other file. Up to 10 MB each. Photos are made smaller so they send quickly.</p>
+      <div class="files" id="eFileList"></div>
     </div>
     <p class="msg" id="eMsg" role="status"></p>
     <button type="submit" class="btn primary wide" id="eSave" style="min-height:56px;font-size:17px">Save</button>
     <button type="button" class="btn danger wide" id="eDel" hidden>Delete this entry</button>
   </form>
+</section>
+
+<!-- ENTRIES & REPORTS SHEET -->
+<section class="sheet" id="view" hidden aria-labelledby="vH">
+  <div class="head"><div class="in2">
+    <button class="iconbtn" type="button" id="vClose" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <h2 id="vH">Entries &amp; reports</h2>
+  </div></div>
+  <div class="body">
+    <div>
+      <span class="lab" id="vPerL">Period</span>
+      <div class="chips" id="vPer" role="group" aria-labelledby="vPerL">
+        <button type="button" data-p="today">Today</button><button type="button" data-p="yday">Yesterday</button><button type="button" data-p="week">This week</button><button type="button" data-p="month">This month</button><button type="button" data-p="lastm">Last month</button><button type="button" data-p="year">This year</button><button type="button" data-p="all">All</button>
+      </div>
+    </div>
+    <div class="dates">
+      <div class="f"><label class="lab" for="vFrom">From</label><input class="in" type="date" id="vFrom"></div>
+      <div class="f"><label class="lab" for="vTo">To</label><input class="in" type="date" id="vTo"></div>
+    </div>
+    <div>
+      <span class="lab" id="vDirL">Show</span>
+      <div class="chips how" id="vDir" role="group" aria-labelledby="vDirL"><button type="button" data-d="">In and out</button><button type="button" data-d="in">Money in only</button><button type="button" data-d="out">Money out only</button></div>
+    </div>
+    <div class="f"><label class="lab" for="vQ">Search</label><input class="in" id="vQ" placeholder="Name, details, category, receipt no."></div>
+    <div class="tot" id="vTot"></div>
+    <div class="dl">
+      <button type="button" class="btn primary" id="vPdf">Download PDF</button>
+      <button type="button" class="btn good" id="vXls">Download Excel</button>
+    </div>
+    <p class="msg" id="vMsg" role="status"></p>
+    <div class="list" id="vList"></div>
+  </div>
 </section>
 
 <!-- SEND SHEET -->
@@ -264,7 +317,7 @@ textarea.in{min-height:70px;resize:vertical}
       <button type="button" class="btn danger wide" id="stClean">Remove sent entries older than 60 days</button>
     </div>
     <p class="msg" id="stMsg" role="status"></p>
-    <p class="hint" id="stVer">WASSIB Pocket Cash Book · version 1.0 · works without internet after the first visit.</p>
+    <p class="hint" id="stVer">WASSIB Pocket Cash Book · version 1.1 · works without internet after the first visit.</p>
   </div>
 </section>
 
@@ -273,7 +326,7 @@ textarea.in{min-height:70px;resize:vertical}
 <script>
 (function(){
 "use strict";
-const VERSION = "1.0";
+const VERSION = "1.1";
 const KEY = "wassibPocket.v1";
 const DEFAULT_URL = "https://claude.ai/artifact/4gYorMJRNgpHApYUKUaHZ7";
 
@@ -320,7 +373,7 @@ const HOW = [
 let S = load();
 function blank(){ return {entries:[], settings:{name:"", url:DEFAULT_URL, rate:"", device:"d"+Math.random().toString(36).slice(2,8)}}; }
 function load(){
-  try { const raw = localStorage.getItem(KEY); if (raw) { const s = JSON.parse(raw); const b = blank(); s.settings = Object.assign(b.settings, s.settings || {}); s.entries = Array.isArray(s.entries) ? s.entries : []; return s; } } catch(e){}
+  try { const raw = localStorage.getItem(KEY); if (raw) { const s = JSON.parse(raw); const b = blank(); s.settings = Object.assign(b.settings, s.settings || {}); s.entries = Array.isArray(s.entries) ? s.entries : []; s.entries.forEach(migrate); return s; } } catch(e){}
   return blank();
 }
 let storageOk = true;
@@ -337,6 +390,14 @@ const PH = { h:null,
   get(id){ return this.op("readonly", s => s.get(id)).catch(() => null); },
   del(id){ return this.op("readwrite", s => s.delete(id)).catch(() => null); }
 };
+/* attachments: entry.files = [{fid, name, type, size}], the file itself sits in IndexedDB under fid as a data URL */
+function migrate(e){ if (e && e.hasPhoto && !Array.isArray(e.files)) e.files = [{fid:e.id, name:"receipt-" + (e.date || "") + ".jpg", type:"image/jpeg", size:0}]; if (e) delete e.hasPhoto; if (e && !Array.isArray(e.files)) e.files = []; }
+function nFiles(e){ return (e && Array.isArray(e.files)) ? e.files.length : 0; }
+function fileExt(n){ const m = /\.([a-z0-9]{1,6})$/i.exec(n || ""); return m ? m[1].toUpperCase() : "FILE"; }
+function fileSize(b){ return !b ? "" : b < 1024 ? b + " B" : b < 1048576 ? Math.round(b / 1024) + " KB" : (b / 1048576).toFixed(1) + " MB"; }
+function readAsDataURL(f){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(f); }); }
+function dataUrlToBlob(d){ const i = d.indexOf(","), meta = d.slice(5, i), bin = atob(d.slice(i + 1)), u = new Uint8Array(bin.length); for (let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k); return new Blob([u], {type: meta.split(";")[0] || "application/octet-stream"}); }
+function saveFile(blob, name){ const u = URL.createObjectURL(blob), a = document.createElement("a"); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 10000); }
 
 /* ---------- helpers ---------- */
 const $ = id => document.getElementById(id);
@@ -400,7 +461,7 @@ function render(){
     const sub = [howLabel(e.how), e.party, e.desc].filter(Boolean).join(" · ");
     html += '<button type="button" class="row ' + (e.dir === "in" ? "in" : "out") + '" data-id="' + esc(e.id) + '">' +
       '<span class="dot" aria-hidden="true">' + (e.dir === "in" ? "+" : "−") + '</span>' +
-      '<span class="t"><b>' + esc(catLabel(e)) + (e.hasPhoto ? ' <span class="muted" style="font-weight:400">· photo</span>' : '') + '</b><small>' + esc(e.time || "") + (sub ? " · " + esc(sub) : "") + '</small></span>' +
+      '<span class="t"><b>' + esc(catLabel(e)) + (nFiles(e) ? ' <span class="muted" style="font-weight:400">· ' + nFiles(e) + ' file' + (nFiles(e) > 1 ? "s" : "") + '</span>' : '') + '</b><small>' + esc(e.time || "") + (sub ? " · " + esc(sub) : "") + '</small></span>' +
       '<span class="a">' + (e.dir === "in" ? "+" : "−") + esc(money(num(e.amount), e.ccy)) + '<small class="' + (pending ? "unsent" : "") + '">' + (pending ? "Not sent" : "Sent ✓") + '</small></span></button>';
   });
   $("list").innerHTML = html || '<div class="empty">No entries yet. Press <b>Money IN</b> or <b>Money OUT</b> the moment money moves. It saves on this phone, even without network.</div>';
@@ -425,19 +486,24 @@ $("showMore").onclick = () => { showAll = true; render(); };
 
 /* ---------- entry sheet ---------- */
 let ed = null; /* working copy */
-let photoData = null, photoChanged = false;
-function openSheet(id){ ["entry","send","settings"].forEach(s => $(s).hidden = s !== id); $("home").hidden = $("bar").hidden = !!id; window.scrollTo(0, 0); if (id) { try { history.pushState({sheet:id}, ""); } catch(e){} } }
-function closeSheets(){ ["entry","send","settings"].forEach(s => $(s).hidden = true); $("home").hidden = $("bar").hidden = false; render(); }
-window.addEventListener("popstate", () => { if (!$("entry").hidden || !$("send").hidden || !$("settings").hidden) closeSheets(); });
+let work = [];  /* attachments being edited: {fid, name, type, size, data?, isNew?} */
+let gone = [];  /* fids removed while editing */
+let returnTo = null;
+function openSheet(id, noPush){ ["entry","send","settings","view"].forEach(s => $(s).hidden = s !== id); $("home").hidden = $("bar").hidden = !!id; window.scrollTo(0, 0); if (id && !noPush) { try { history.pushState({sheet:id}, ""); } catch(e){} } }
+function closeSheets(){
+  if (returnTo === "view" && !$("entry").hidden) { returnTo = null; openSheet("view", true); renderView(); return; }
+  returnTo = null; ["entry","send","settings","view"].forEach(s => $(s).hidden = true); $("home").hidden = $("bar").hidden = false; render();
+}
+window.addEventListener("popstate", () => { if (!$("entry").hidden || !$("send").hidden || !$("settings").hidden || !$("view").hidden) closeSheets(); });
 function back(){ try { if (history.state && history.state.sheet) { history.back(); return; } } catch(e){} closeSheets(); }
 
 function openEntry(dir, e){
-  ed = e ? JSON.parse(JSON.stringify(e)) : {id:newId(), dir, date:today(), time:hm(), amount:"", ccy:"NGN", rate:S.settings.rate || "", how:"cash", cat:"", party:"", desc:"", ref:"", hasPhoto:false};
-  photoData = null; photoChanged = false;
+  returnTo = !$("view").hidden ? "view" : null;
+  ed = e ? JSON.parse(JSON.stringify(e)) : {id:newId(), dir, date:today(), time:hm(), amount:"", ccy:"NGN", rate:S.settings.rate || "", how:"cash", cat:"", party:"", desc:"", ref:"", files:[]};
+  migrate(ed); work = ed.files.map(f => Object.assign({}, f)); gone = [];
   $("eAmt").value = ed.amount ? String(ed.amount) : ""; $("eRate").value = ed.rate || ""; $("eParty").value = ed.party || ""; $("eDesc").value = ed.desc || ""; $("eDate").value = ed.date; $("eRef").value = ed.ref || "";
   $("eMsg").textContent = ""; $("eMsg").className = "msg"; $("eDel").hidden = !e; $("eSave").textContent = e ? "Save changes" : "Save";
-  $("ePhoto").value = ""; showPhoto(null);
-  if (e && e.hasPhoto) PH.get(e.id).then(d => { if (d && ed && ed.id === e.id) { photoData = d; showPhoto(d); } });
+  $("ePhoto").value = ""; $("eFiles").value = ""; renderFiles();
   names(); applyDir(); openSheet("entry");
   if (!e) setTimeout(() => $("eAmt").focus(), 80);
 }
@@ -463,15 +529,42 @@ $("eClose").onclick = back;
 $("goIn").onclick = () => openEntry("in"); $("goOut").onclick = () => openEntry("out");
 function names(){ const set = new Set(S.entries.map(e => (e.party || "").trim()).filter(Boolean)); $("names").innerHTML = [...set].slice(0, 200).map(n => '<option value="' + esc(n) + '">').join(""); }
 
-/* photo: shrink on the phone so it syncs quickly */
-function showPhoto(d){ $("ePhotoImg").hidden = !d; $("ePhotoDel").hidden = !d; if (d) $("ePhotoImg").src = d; else $("ePhotoImg").removeAttribute("src"); }
-$("ePhoto").addEventListener("change", async () => {
-  const f = $("ePhoto").files[0]; if (!f) return;
-  $("eMsg").className = "msg"; $("eMsg").textContent = "Preparing photo…";
-  try { photoData = await shrink(f, 1280, 0.68); photoChanged = true; showPhoto(photoData); $("eMsg").textContent = ""; }
-  catch(err){ $("eMsg").className = "msg err"; $("eMsg").textContent = "That photo could not be read. Try another one."; }
+/* attachments: photos are shrunk on the phone so they sync quickly; any other file is kept as it is */
+const MAX_FILE = 10 * 1024 * 1024;
+const thumbs = {};
+async function renderFiles(){
+  const box = $("eFileList");
+  box.innerHTML = work.map((f, i) => '<div class="file"><span class="th" id="th_' + i + '">' + esc(fileExt(f.name)) + '</span><span class="nm"><b>' + esc(f.name) + '</b><small>' + esc([fileExt(f.name), fileSize(f.size)].filter(Boolean).join(" · ")) + '</small></span>' +
+    '<span class="acts"><button type="button" class="btn sm" data-fo="' + i + '">Open</button><button type="button" class="btn sm danger" data-fx="' + i + '" aria-label="Remove ' + esc(f.name) + '">✕</button></span></div>').join("");
+  for (let i = 0; i < work.length; i++) { const f = work[i]; if (!/^image\//.test(f.type)) continue;
+    const d = f.data || thumbs[f.fid] || await PH.get(f.fid); if (!d) continue; thumbs[f.fid] = d; const t = $("th_" + i); if (t) { const im = new Image(); im.alt = ""; im.src = d; t.textContent = ""; t.appendChild(im); } }
+}
+async function addFiles(list, fromCamera){
+  const m = $("eMsg");
+  for (const f of list) {
+    try {
+      if (/^image\/(jpeg|png|webp|gif|bmp)$/.test(f.type) || (fromCamera && /^image\//.test(f.type))) {
+        m.className = "msg"; m.textContent = "Preparing " + (f.name || "photo") + "…";
+        const d = await shrink(f, 1400, 0.7); const nm = (f.name || "photo").replace(/\.[^.]+$/, "") + ".jpg";
+        work.push({fid:"f" + newId(), name: fromCamera && !f.name ? "photo-" + today() + ".jpg" : nm, type:"image/jpeg", size:Math.round(d.length * 0.75), data:d, isNew:true});
+      } else {
+        if (f.size > MAX_FILE) { m.className = "msg err"; m.textContent = f.name + " is " + fileSize(f.size) + ". Files must be 10 MB or less: compress it or send it another way."; continue; }
+        const d = await readAsDataURL(f);
+        work.push({fid:"f" + newId(), name:f.name || "file", type:f.type || "application/octet-stream", size:f.size, data:d, isNew:true});
+      }
+      m.textContent = "";
+    } catch(err){ m.className = "msg err"; m.textContent = (f.name || "That file") + " could not be read. Try another one."; }
+  }
+  renderFiles();
+}
+$("ePhoto").addEventListener("change", () => { addFiles([...$("ePhoto").files], true); $("ePhoto").value = ""; });
+$("eFiles").addEventListener("change", () => { addFiles([...$("eFiles").files], false); $("eFiles").value = ""; });
+$("eFileList").addEventListener("click", async e => {
+  const o = e.target.closest("[data-fo]"), x = e.target.closest("[data-fx]");
+  if (x) { const f = work.splice(+x.dataset.fx, 1)[0]; if (f && !f.isNew) gone.push(f.fid); renderFiles(); return; }
+  if (o) { const f = work[+o.dataset.fo]; if (!f) return; const d = f.data || await PH.get(f.fid); if (!d) { toast("This file is no longer on this phone."); return; }
+    const blob = dataUrlToBlob(d), u = URL.createObjectURL(blob); const w = window.open(u, "_blank"); if (!w) saveFile(blob, f.name); setTimeout(() => URL.revokeObjectURL(u), 60000); }
 });
-$("ePhotoDel").onclick = () => { photoData = null; photoChanged = true; showPhoto(null); $("ePhoto").value = ""; };
 function shrink(file, max, q){
   return new Promise((res, rej) => {
     const url = URL.createObjectURL(file), img = new Image();
@@ -495,17 +588,18 @@ $("eForm").addEventListener("submit", async ev => {
   const old = S.entries.find(x => x.id === ed.id);
   const rec = Object.assign({}, ed, {amount, rate: ed.ccy === "USD" ? rate : 1, date:$("eDate").value, party:$("eParty").value.trim(), desc:$("eDesc").value.trim(), ref:$("eRef").value.trim(),
     by:(old && old.by) || S.settings.name || "", createdAt:(old && old.createdAt) || Date.now(), updatedAt:Date.now()});
-  if (photoChanged) {
-    if (photoData) { try { await PH.put(rec.id, photoData); rec.hasPhoto = true; } catch(e){ rec.hasPhoto = false; toast("Saved, but the photo could not be stored on this phone."); } }
-    else { await PH.del(rec.id); rec.hasPhoto = false; }
-  }
+  let fileFail = 0;
+  for (const f of work.filter(f => f.isNew)) { try { await PH.put(f.fid, f.data); } catch(e){ fileFail++; f.failed = true; } }
+  for (const fid of gone) { await PH.del(fid); delete thumbs[fid]; }
+  rec.files = work.filter(f => !f.failed).map(f => ({fid:f.fid, name:f.name, type:f.type, size:f.size}));
+  if (fileFail) toast("Saved, but " + fileFail + " file" + (fileFail > 1 ? "s" : "") + " could not be stored on this phone (storage full?).");
   if (ed.ccy === "USD" && rate) S.settings.rate = rate;
   if (old) Object.assign(old, rec); else S.entries.push(rec);
   save(); back();
   toast((rec.dir === "in" ? "Money in " : "Money out ") + money(amount, rec.ccy) + " saved" + (navigator.onLine ? "" : " on this phone"));
 });
 $("eDel").onclick = function(){ arm(this, "Tap again to delete", async () => {
-  const id = ed.id; S.entries = S.entries.filter(x => x.id !== id); await PH.del(id); save(); back(); toast("Entry deleted from this phone");
+  const id = ed.id; const was = S.entries.find(x => x.id === id); S.entries = S.entries.filter(x => x.id !== id); for (const f of (was ? was.files : ed.files) || []) await PH.del(f.fid); save(); back(); toast("Entry deleted from this phone");
 }); };
 
 /* ---------- send ---------- */
@@ -524,8 +618,8 @@ function toBook(e){
 async function buildPack(){
   const list = sendAll ? sorted() : unsent();
   const entries = [];
-  for (const e of list) { const b = toBook(e); if (e.hasPhoto) { const d = await PH.get(e.id); if (d) b.photo = {name:"receipt-" + e.date + "-" + e.id.slice(-5) + ".jpg", type:"image/jpeg", data:d}; } entries.push(b); }
-  const pack = {app:"wassib-pocket-cashbook", v:1, device:S.settings.device, by:S.settings.name || "", sentAt:Date.now(), entries};
+  for (const e of list) { const b = toBook(e); b.files = []; for (const f of e.files || []) { const d = await PH.get(f.fid); if (d) b.files.push({name:f.name, type:f.type, size:f.size, data:d}); } entries.push(b); }
+  const pack = {app:"wassib-pocket-cashbook", v:2, device:S.settings.device, by:S.settings.name || "", sentAt:Date.now(), entries};
   const json = JSON.stringify(pack);
   const b64 = btoa(unescape(encodeURIComponent(json)));
   return {list, code:"WASSIB-POCKET:" + b64, json};
@@ -544,8 +638,8 @@ async function refreshSend(){
   $("sSize").textContent = dis ? "Nothing new to send. Every entry on this phone has been sent." : "Preparing…";
   if (dis) return;
   const p = await buildPack(); lastCode = p.code;
-  const kb = Math.round(p.code.length / 1024), ph = p.list.filter(e => e.hasPhoto).length;
-  $("sSize").textContent = "Sync code: " + (kb < 1 ? "under 1" : kb) + " KB" + (ph ? " · includes " + ph + " receipt photo" + (ph > 1 ? "s" : "") : "") + (kb > 900 ? ". It is large: “Save as a file” or Share works better than copy." : ".");
+  const kb = Math.round(p.code.length / 1024), ph = p.list.reduce((s, e) => s + nFiles(e), 0);
+  $("sSize").textContent = "Sync code: " + (kb < 1 ? "under 1" : kb) + " KB" + (ph ? " · includes " + ph + " supporting document" + (ph > 1 ? "s" : "") : "") + (kb > 900 ? ". It is large: “Save as a file” or Share works better than copy." : ".");
   let canFile = false; try { canFile = !!(navigator.canShare && navigator.canShare({files:[new File(["x"], "x.wassib", {type:"text/plain"})]})); } catch(e){}
   $("sShare").hidden = !(navigator.share);
   $("sShare").dataset.file = canFile ? "1" : "";
@@ -574,6 +668,114 @@ $("sShare").onclick = async () => {
 };
 function done(t){ $("sMsg").className = "msg ok"; $("sMsg").textContent = t; render(); }
 
+/* ---------- entries & reports ---------- */
+const LIBS = {
+  pdf: ["https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"],
+  xls: ["https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"]
+};
+const loaded = {};
+function loadScript(src){ if (loaded[src]) return loaded[src]; return loaded[src] = new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => { delete loaded[src]; s.remove(); rej(new Error("load")); }; document.head.appendChild(s); }); }
+async function loadLib(k){ for (const s of LIBS[k]) await loadScript(s); }
+let vPerV = "month", vDirV = "";
+function periodDates(p){
+  const d = new Date(), t = today();
+  if (p === "today") return [t, t];
+  if (p === "yday") { d.setDate(d.getDate() - 1); const y = ymd(d); return [y, y]; }
+  if (p === "week") { d.setDate(d.getDate() - (d.getDay() + 6) % 7); return [ymd(d), t]; }
+  if (p === "month") return [t.slice(0, 8) + "01", t];
+  if (p === "lastm") { const a = new Date(d.getFullYear(), d.getMonth() - 1, 1), b = new Date(d.getFullYear(), d.getMonth(), 0); return [ymd(a), ymd(b)]; }
+  if (p === "year") return [t.slice(0, 4) + "-01-01", t];
+  const all = S.entries.map(e => e.date).filter(Boolean).sort(); return [all[0] || t, all[all.length - 1] > t ? all[all.length - 1] : t];
+}
+function setPeriod(p){ vPerV = p; const [f, t] = periodDates(p); $("vFrom").value = f; $("vTo").value = t; }
+function viewRows(){
+  const f = $("vFrom").value || "0000-01-01", t = $("vTo").value || "9999-12-31", q = $("vQ").value.trim().toLowerCase();
+  return sorted().filter(e => e.date >= f && e.date <= t && (!vDirV || e.dir === vDirV) &&
+    (!q || [catLabel(e), e.party, e.desc, e.ref, e.by, howLabel(e.how)].join(" ").toLowerCase().includes(q)));
+}
+function periodLabel(){ const f = $("vFrom").value, t = $("vTo").value; if (!f && !t) return "All dates"; const fd = s => { const x = new Date(s + "T12:00:00"); return x.getDate() + " " + MON[x.getMonth()] + " " + x.getFullYear(); }; return f === t ? fd(f) : fd(f) + " to " + fd(t); }
+function renderView(){
+  [...$("vPer").children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.p === vPerV)));
+  [...$("vDir").children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.d === vDirV)));
+  const rows = viewRows(), tt = totals(rows), n = tt.NGN, net = r2(n.i - n.o), u = tt.USD;
+  $("vTot").innerHTML = '<div><span class="muted" style="font-size:12px">Money in</span><b style="color:var(--in)">' + esc(money(n.i)) + '</b></div>' +
+    '<div><span class="muted" style="font-size:12px">Money out</span><b style="color:var(--out)">' + esc(money(n.o)) + '</b></div>' +
+    '<div><span class="muted" style="font-size:12px">Balance</span><b' + (net < 0 ? ' style="color:var(--out)"' : '') + '>' + esc(money(net)) + '</b></div>' +
+    '<div><span class="muted" style="font-size:12px">Entries</span><b>' + rows.length + '</b></div>' +
+    (u.i || u.o ? '<div style="grid-column:1/-1"><span class="muted" style="font-size:12px">Dollars</span><b>in ' + esc(money(u.i, "USD")) + ' · out ' + esc(money(u.o, "USD")) + '</b></div>' : '');
+  let html = "", last = null;
+  rows.forEach(e => {
+    if (e.date !== last) { last = e.date; const d = totals(rows.filter(x => x.date === e.date)).NGN; html += '<div class="day"><span>' + esc(fmtDay(e.date)) + '</span><span class="mono">in ' + esc(money(d.i)) + ' · out ' + esc(money(d.o)) + '</span></div>'; }
+    const pending = !e.sentAt || (e.updatedAt || 0) > e.sentAt, sub = [howLabel(e.how), e.party, e.desc].filter(Boolean).join(" · ");
+    html += '<button type="button" class="row ' + (e.dir === "in" ? "in" : "out") + '" data-id="' + esc(e.id) + '"><span class="dot" aria-hidden="true">' + (e.dir === "in" ? "+" : "−") + '</span>' +
+      '<span class="t"><b>' + esc(catLabel(e)) + (nFiles(e) ? ' <span class="muted" style="font-weight:400">· ' + nFiles(e) + ' file' + (nFiles(e) > 1 ? "s" : "") + '</span>' : '') + '</b><small>' + esc(e.time || "") + (sub ? " · " + esc(sub) : "") + '</small></span>' +
+      '<span class="a">' + (e.dir === "in" ? "+" : "−") + esc(money(num(e.amount), e.ccy)) + '<small class="' + (pending ? "unsent" : "") + '">' + (pending ? "Not sent" : "Sent ✓") + '</small></span></button>';
+  });
+  $("vList").innerHTML = html || '<div class="empty">No entries for ' + esc(periodLabel()) + '. Pick another period above.</div>';
+  $("vPdf").disabled = $("vXls").disabled = !rows.length;
+}
+function reportRows(rows){
+  return rows.slice().reverse().map(e => ({date:e.date, time:e.time || "", type:e.dir === "in" ? "In" : "Out", cat:catLabel(e), party:e.party || "", desc:e.desc || "", how:howLabel(e.how), ref:e.ref || "",
+    ccy:e.ccy || "NGN", rate:e.ccy === "USD" ? num(e.rate) : 1, inAmt:e.dir === "in" ? num(e.amount) : 0, outAmt:e.dir !== "in" ? num(e.amount) : 0,
+    ngn:r2(num(e.amount) * (e.ccy === "USD" ? num(e.rate) : 1)) * (e.dir === "in" ? 1 : -1), docs:(e.files || []).map(f => f.name).join(", "), by:e.by || "", sent:(!e.sentAt || (e.updatedAt || 0) > e.sentAt) ? "Not sent" : "Sent"}));
+}
+function reportName(ext){ return "pocket-cashbook-" + ($("vFrom").value || "start") + "-to-" + ($("vTo").value || today()) + (vDirV ? "-" + (vDirV === "in" ? "money-in" : "money-out") : "") + "." + ext; }
+const vMsg = (t, cls) => { $("vMsg").className = "msg " + (cls || ""); $("vMsg").textContent = t; };
+$("vPdf").onclick = async () => {
+  const rows = viewRows(); if (!rows.length) return; vMsg("Preparing PDF…");
+  try { await loadLib("pdf"); } catch(e){ vMsg("The PDF maker needs internet the first time. Connect once, then it works offline. Excel works now.", "err"); return; }
+  try {
+    const { jsPDF } = window.jspdf, doc = new jsPDF({orientation:"landscape", unit:"pt", format:"a4"}), W = doc.internal.pageSize.getWidth();
+    const R = reportRows(rows), tt = totals(rows), n = tt.NGN, u = tt.USD, f2 = v => v ? nf2.format(v) : "";
+    doc.setFillColor(163, 33, 63); doc.rect(0, 0, W, 6, "F");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(27, 29, 34); doc.text("WASSIB GLOBAL LIMITED", 36, 34);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(93, 96, 104); doc.text("RC 9543645 · TIN 2621934284804 · Kano, Nigeria", 36, 48);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.setTextColor(27, 29, 34); doc.text("Pocket cash book: " + (vDirV === "in" ? "money in" : vDirV === "out" ? "money out" : "money in and out"), 36, 72);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(93, 96, 104);
+    doc.text("Period: " + periodLabel() + "   ·   " + rows.length + " entries   ·   Phone of: " + (S.settings.name || "not set") + "   ·   Printed " + new Date().toLocaleString("en-NG"), 36, 87);
+    doc.setTextColor(27, 29, 34); doc.setFont("helvetica", "bold");
+    doc.text("Money in NGN " + nf2.format(n.i) + "     Money out NGN " + nf2.format(n.o) + "     Balance NGN " + nf2.format(r2(n.i - n.o)) + (u.i || u.o ? "     Dollars: in USD " + nf2.format(u.i) + ", out USD " + nf2.format(u.o) : ""), 36, 104);
+    doc.autoTable({startY:116, margin:{left:36, right:36}, styles:{fontSize:7.6, cellPadding:3, overflow:"linebreak", lineColor:[221,218,214], lineWidth:0.4},
+      headStyles:{fillColor:[27,29,34], textColor:255, fontStyle:"bold"}, alternateRowStyles:{fillColor:[245,244,242]},
+      head:[["Date","Time","In/Out","What for","Name","Details","How","Ref","Cur","In","Out","Documents","Recorded by","Sent"]],
+      body:R.map(r => [r.date, r.time, r.type, r.cat, r.party, r.desc, r.how, r.ref, r.ccy, f2(r.inAmt), f2(r.outAmt), r.docs, r.by, r.sent]),
+      foot:[["","","","","","","","","Total NGN", nf2.format(n.i), nf2.format(n.o), "Balance " + nf2.format(r2(n.i - n.o)), "", ""]].concat(u.i || u.o ? [["","","","","","","","","Total USD", nf2.format(u.i), nf2.format(u.o), "", "", ""]] : []),
+      footStyles:{fillColor:[236,235,232], textColor:[27,29,34], fontStyle:"bold"},
+      columnStyles:{0:{cellWidth:52},1:{cellWidth:30},2:{cellWidth:34},8:{cellWidth:30},9:{halign:"right",cellWidth:62},10:{halign:"right",cellWidth:62},13:{cellWidth:38}},
+      didDrawPage: d => { doc.setFontSize(8); doc.setTextColor(93,96,104); doc.text("WASSIB Pocket Cash Book · page " + doc.internal.getNumberOfPages(), 36, doc.internal.pageSize.getHeight() - 16); }
+    });
+    saveFile(doc.output("blob"), reportName("pdf")); vMsg("PDF saved to Downloads: " + reportName("pdf"), "ok");
+  } catch(e){ vMsg("The PDF could not be made. Try a shorter period.", "err"); }
+};
+$("vXls").onclick = async () => {
+  const rows = viewRows(); if (!rows.length) return; const R = reportRows(rows), tt = totals(rows);
+  const head = ["Date","Time","In/Out","What for","Name","Details","How","Receipt no.","Currency","Rate (NGN per 1)","Money in","Money out","Naira value (+in / -out)","Documents","Recorded by","Sent to books"];
+  const body = R.map(r => [r.date, r.time, r.type, r.cat, r.party, r.desc, r.how, r.ref, r.ccy, r.rate, r.inAmt || null, r.outAmt || null, r.ngn, r.docs, r.by, r.sent]);
+  vMsg("Preparing Excel file…");
+  try {
+    await loadLib("xls"); const X = window.XLSX;
+    const top = [["WASSIB GLOBAL LIMITED · Pocket cash book"], ["Period: " + periodLabel() + (vDirV ? " · " + (vDirV === "in" ? "money in only" : "money out only") : "")], ["Phone of: " + (S.settings.name || "not set") + " · exported " + new Date().toLocaleString("en-NG")], []];
+    const ws = X.utils.aoa_to_sheet(top.concat([head], body, [[], ["","","","","","","","","Totals NGN","", tt.NGN.i, tt.NGN.o, r2(tt.NGN.i - tt.NGN.o)]].concat(tt.USD.i || tt.USD.o ? [["","","","","","","","","Totals USD","", tt.USD.i, tt.USD.o, ""]] : [])));
+    ws["!cols"] = [10,7,7,22,22,32,14,12,9,12,14,14,18,30,16,12].map(w => ({wch:w}));
+    const sm = X.utils.aoa_to_sheet([["Summary", periodLabel()], [], ["", "Money in", "Money out", "Balance", "Entries"], ["Naira (NGN)", tt.NGN.i, tt.NGN.o, r2(tt.NGN.i - tt.NGN.o), rows.filter(e => e.ccy !== "USD").length], ["Dollars (USD)", tt.USD.i, tt.USD.o, r2(tt.USD.i - tt.USD.o), rows.filter(e => e.ccy === "USD").length]]);
+    sm["!cols"] = [{wch:16},{wch:16},{wch:16},{wch:16},{wch:10}];
+    const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, "Entries"); X.utils.book_append_sheet(wb, sm, "Summary");
+    const out = X.write(wb, {bookType:"xlsx", type:"array"});
+    saveFile(new Blob([out], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}), reportName("xlsx")); vMsg("Excel file saved to Downloads: " + reportName("xlsx"), "ok");
+  } catch(e){
+    /* offline before the Excel maker was ever downloaded: a CSV opens in Excel just the same */
+    const csv = "﻿" + [head].concat(body).map(r => r.map(v => v == null ? "" : /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v)).join(",")).join("\r\n");
+    saveFile(new Blob([csv], {type:"text/csv"}), reportName("csv")); vMsg("Saved as a CSV file, which opens in Excel. Connect to the internet once to get proper .xlsx files.", "ok");
+  }
+};
+$("vPer").addEventListener("click", e => { const b = e.target.closest("[data-p]"); if (!b) return; setPeriod(b.dataset.p); vMsg(""); renderView(); });
+$("vDir").addEventListener("click", e => { const b = e.target.closest("[data-d]"); if (!b) return; vDirV = b.dataset.d; renderView(); });
+["vFrom","vTo"].forEach(id => $(id).addEventListener("change", () => { vPerV = ""; renderView(); }));
+$("vQ").addEventListener("input", renderView);
+$("vList").addEventListener("click", e => { const b = e.target.closest(".row"); if (b) openEntry(null, S.entries.find(x => x.id === b.dataset.id)); });
+$("goView").onclick = () => { if (!$("vFrom").value) setPeriod(vPerV || "month"); vMsg(""); openSheet("view"); renderView(); if (navigator.onLine) { loadLib("pdf").catch(() => {}); loadLib("xls").catch(() => {}); } };
+$("vClose").onclick = back;
+
 /* ---------- settings ---------- */
 $("openSet").onclick = () => { $("stName").value = S.settings.name || ""; $("stUrl").value = S.settings.url || DEFAULT_URL; $("stRate").value = S.settings.rate || ""; $("stMsg").textContent = ""; openSheet("settings"); };
 $("stClose").onclick = back;
@@ -583,7 +785,7 @@ $("stRate").addEventListener("change", () => { S.settings.rate = num($("stRate")
 function ok(t){ $("stMsg").className = "msg ok"; $("stMsg").textContent = t; }
 function err(t){ $("stMsg").className = "msg err"; $("stMsg").textContent = t; }
 $("stBackup").onclick = async () => {
-  const photos = {}; for (const e of S.entries) if (e.hasPhoto) { const d = await PH.get(e.id); if (d) photos[e.id] = d; }
+  const photos = {}; for (const e of S.entries) for (const f of e.files || []) { const d = await PH.get(f.fid); if (d) photos[f.fid] = d; }
   const blob = new Blob([JSON.stringify({app:"wassib-pocket-backup", v:1, savedAt:Date.now(), state:S, photos})], {type:"application/json"});
   const u = URL.createObjectURL(blob), a = document.createElement("a"); a.href = u; a.download = "pocket-cashbook-backup-" + today() + ".json"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 8000);
   ok("Backup saved to Downloads. Keep it somewhere safe, like Google Drive.");
@@ -591,7 +793,7 @@ $("stBackup").onclick = async () => {
 $("stRestore").addEventListener("change", async () => {
   const f = $("stRestore").files[0]; if (!f) return;
   try { const d = JSON.parse(await f.text()); if (d.app !== "wassib-pocket-backup" || !d.state || !Array.isArray(d.state.entries)) throw 0;
-    let added = 0; for (const e of d.state.entries) { if (!e || !e.id || S.entries.some(x => x.id === e.id)) continue; S.entries.push(e); added++; if (d.photos && d.photos[e.id]) { try { await PH.put(e.id, d.photos[e.id]); } catch(x){} } }
+    let added = 0; for (const e of d.state.entries) { if (!e || !e.id || S.entries.some(x => x.id === e.id)) continue; const legacy = e.hasPhoto; migrate(e); S.entries.push(e); added++; for (const fl of e.files) { const k = d.photos && (d.photos[fl.fid] ? fl.fid : legacy && d.photos[e.id] ? e.id : null); if (k) { try { await PH.put(fl.fid, d.photos[k]); } catch(x){} } } }
     if (!S.settings.name && d.state.settings && d.state.settings.name) S.settings.name = d.state.settings.name;
     save(); ok("Restored " + added + " entr" + (added === 1 ? "y" : "ies") + ". Entries already on this phone were kept as they are."); }
   catch(e){ err("That file is not a Pocket Cash Book backup."); }
@@ -600,7 +802,7 @@ $("stRestore").addEventListener("change", async () => {
 $("stClean").onclick = function(){ arm(this, "Tap again to remove", async () => {
   const lim = new Date(); lim.setDate(lim.getDate() - 60); const cut = ymd(lim);
   const gone = S.entries.filter(e => e.sentAt && (e.updatedAt || 0) <= e.sentAt && e.date < cut);
-  for (const e of gone) await PH.del(e.id);
+  for (const e of gone) for (const f of e.files || []) await PH.del(f.fid);
   S.entries = S.entries.filter(e => !gone.includes(e)); save(); ok("Removed " + gone.length + " old sent entr" + (gone.length === 1 ? "y" : "ies") + ". The books still have them.");
 }); };
 
