@@ -1,11 +1,13 @@
 /* WASSIB Pocket Cash Book: keeps the app working offline and updates it when online. */
-const CACHE = "wassib-pocket-v2";
+const CACHE = "wassib-pocket-v3";
 const CORE = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
-/* PDF and Excel makers, kept on the phone so downloads also work offline */
+/* PDF and Excel makers and the statement readers, kept on the phone so they also work offline */
 const LIBS = [
   "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js",
-  "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
+  "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
 ];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(async c => {

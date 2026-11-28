@@ -180,6 +180,7 @@ textarea.in{min-height:70px;resize:vertical}
   </div>
 
   <button type="button" class="viewlink" id="goView"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span><b>Entries &amp; reports</b><small>See entries for any dates · download PDF or Excel</small></span><span class="muted" aria-hidden="true">›</span></button>
+  <button type="button" class="viewlink" id="goBank"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18"/></svg><span><b>Bank statement</b><small>Upload a bank or OPay statement · tick off and explain each line</small></span><span class="muted" aria-hidden="true">›</span></button>
 
   <div class="alert" id="syncAlert" hidden><span id="syncAlertT"></span><button type="button" class="btn sm primary" id="syncAlertB">Send now</button></div>
 
@@ -268,6 +269,32 @@ textarea.in{min-height:70px;resize:vertical}
   </div>
 </section>
 
+<!-- BANK STATEMENT SHEET -->
+<section class="sheet" id="bank" hidden aria-labelledby="bH">
+  <div class="head"><div class="in2">
+    <button class="iconbtn" type="button" id="bClose" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <h2 id="bH">Bank statement</h2>
+  </div></div>
+  <div class="body">
+    <p class="hint" style="margin:0">Upload the statement from your bank or OPay app. Each line is checked against the entries on this phone: lines you already recorded are ticked, lines the app can place are filled in, and lines it isn't sure about are left for you to explain.</p>
+    <div>
+      <span class="lab" id="bHowL">Which account is this statement for?</span>
+      <div class="chips how" id="bHow" role="group" aria-labelledby="bHowL"><button type="button" data-k="transfer" aria-pressed="true">Bank account</button><button type="button" data-k="opay" aria-pressed="false">OPay / mobile money</button></div>
+    </div>
+    <label class="btn primary wide" for="bFile">Choose the statement (Excel, CSV or PDF)</label><input type="file" id="bFile" accept=".xlsx,.xls,.csv,.pdf,.txt" hidden>
+    <p class="msg" id="bMsg" role="status"></p>
+    <div id="bCur" hidden style="display:grid;gap:14px">
+      <div class="sum" id="bSum"></div>
+      <div class="chips how" id="bFilt" role="group" aria-label="Show"></div>
+      <div class="dl"><button type="button" class="btn good" id="bXls">Download Excel to explain</button><label class="btn" for="bXlsIn">Upload explained Excel</label><input type="file" id="bXlsIn" accept=".xlsx,.xls" hidden></div>
+      <button type="button" class="btn primary wide" id="bAdd" style="min-height:52px">Add lines as entries</button>
+      <div class="list" id="bList"></div>
+      <button type="button" class="btn danger wide" id="bDel">Remove this statement from the phone</button>
+    </div>
+    <div id="bOld"></div>
+  </div>
+</section>
+
 <!-- SEND SHEET -->
 <section class="sheet" id="send" hidden aria-labelledby="sH">
   <div class="head"><div class="in2">
@@ -317,7 +344,7 @@ textarea.in{min-height:70px;resize:vertical}
       <button type="button" class="btn danger wide" id="stClean">Remove sent entries older than 60 days</button>
     </div>
     <p class="msg" id="stMsg" role="status"></p>
-    <p class="hint" id="stVer">WASSIB Pocket Cash Book · version 1.1 · works without internet after the first visit.</p>
+    <p class="hint" id="stVer">WASSIB Pocket Cash Book · version 1.2 · works without internet after the first visit.</p>
   </div>
 </section>
 
@@ -326,7 +353,7 @@ textarea.in{min-height:70px;resize:vertical}
 <script>
 (function(){
 "use strict";
-const VERSION = "1.1";
+const VERSION = "1.2";
 const KEY = "wassibPocket.v1";
 const DEFAULT_URL = "https://claude.ai/artifact/4gYorMJRNgpHApYUKUaHZ7";
 
@@ -371,9 +398,9 @@ const HOW = [
 
 /* ---------- state ---------- */
 let S = load();
-function blank(){ return {entries:[], settings:{name:"", url:DEFAULT_URL, rate:"", device:"d"+Math.random().toString(36).slice(2,8)}}; }
+function blank(){ return {entries:[], banks:[], settings:{name:"", url:DEFAULT_URL, rate:"", device:"d"+Math.random().toString(36).slice(2,8)}}; }
 function load(){
-  try { const raw = localStorage.getItem(KEY); if (raw) { const s = JSON.parse(raw); const b = blank(); s.settings = Object.assign(b.settings, s.settings || {}); s.entries = Array.isArray(s.entries) ? s.entries : []; s.entries.forEach(migrate); return s; } } catch(e){}
+  try { const raw = localStorage.getItem(KEY); if (raw) { const s = JSON.parse(raw); const b = blank(); s.settings = Object.assign(b.settings, s.settings || {}); s.entries = Array.isArray(s.entries) ? s.entries : []; s.banks = Array.isArray(s.banks) ? s.banks : []; s.entries.forEach(migrate); return s; } } catch(e){}
   return blank();
 }
 let storageOk = true;
@@ -489,12 +516,12 @@ let ed = null; /* working copy */
 let work = [];  /* attachments being edited: {fid, name, type, size, data?, isNew?} */
 let gone = [];  /* fids removed while editing */
 let returnTo = null;
-function openSheet(id, noPush){ ["entry","send","settings","view"].forEach(s => $(s).hidden = s !== id); $("home").hidden = $("bar").hidden = !!id; window.scrollTo(0, 0); if (id && !noPush) { try { history.pushState({sheet:id}, ""); } catch(e){} } }
+function openSheet(id, noPush){ ["entry","send","settings","view","bank"].forEach(s => $(s).hidden = s !== id); $("home").hidden = $("bar").hidden = !!id; window.scrollTo(0, 0); if (id && !noPush) { try { history.pushState({sheet:id}, ""); } catch(e){} } }
 function closeSheets(){
   if (returnTo === "view" && !$("entry").hidden) { returnTo = null; openSheet("view", true); renderView(); return; }
-  returnTo = null; ["entry","send","settings","view"].forEach(s => $(s).hidden = true); $("home").hidden = $("bar").hidden = false; render();
+  returnTo = null; ["entry","send","settings","view","bank"].forEach(s => $(s).hidden = true); $("home").hidden = $("bar").hidden = false; render();
 }
-window.addEventListener("popstate", () => { if (!$("entry").hidden || !$("send").hidden || !$("settings").hidden || !$("view").hidden) closeSheets(); });
+window.addEventListener("popstate", () => { if (!$("entry").hidden || !$("send").hidden || !$("settings").hidden || !$("view").hidden || !$("bank").hidden) closeSheets(); });
 function back(){ try { if (history.state && history.state.sheet) { history.back(); return; } } catch(e){} closeSheets(); }
 
 function openEntry(dir, e){
@@ -775,6 +802,258 @@ $("vQ").addEventListener("input", renderView);
 $("vList").addEventListener("click", e => { const b = e.target.closest(".row"); if (b) openEntry(null, S.entries.find(x => x.id === b.dataset.id)); });
 $("goView").onclick = () => { if (!$("vFrom").value) setPeriod(vPerV || "month"); vMsg(""); openSheet("view"); renderView(); if (navigator.onLine) { loadLib("pdf").catch(() => {}); loadLib("xls").catch(() => {}); } };
 $("vClose").onclick = back;
+
+/* ---------- bank statement reader: Excel, CSV or PDF -> dated lines with money in / out (shared by the Accounting System and the Pocket Cash Book) ---------- */
+const BKX = (() => {
+  const LIB = { xlsx:["https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"], pdf:["https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"] };
+  const got = {};
+  function script(src){ if (got[src]) return got[src]; return got[src] = new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => { delete got[src]; s.remove(); rej(new Error("load")); }; document.head.appendChild(s); }); }
+  /* the PDF worker is loaded as a plain script so it runs on the page itself: no separate worker file is fetched */
+  async function lib(k){ for (const s of LIB[k]) await script(s); }
+  const MONS = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12};
+  const p2 = n => String(n).padStart(2, "0");
+  function okDate(y, m, d){ y = +y; m = +m; d = +d; if (y < 100) y += 2000; if (!(y > 1990 && y < 2100 && m >= 1 && m <= 12 && d >= 1 && d <= 31)) return ""; return y + "-" + p2(m) + "-" + p2(d); }
+  function parseDate(v){
+    if (v == null || v === "") return "";
+    if (v instanceof Date && !isNaN(v)) return okDate(v.getFullYear(), v.getMonth() + 1, v.getDate());
+    if (typeof v === "number" && v > 20000 && v < 80000) { const d = new Date(Math.round((v - 25569) * 864e5)); return okDate(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate()); }
+    const s = String(v).trim(); let m;
+    if ((m = /^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/.exec(s))) return okDate(m[1], m[2], m[3]);
+    if ((m = /^(\d{1,2})[-\/. ]([A-Za-z]{3,9})[-\/., ]+(\d{2,4})/.exec(s))) { const mo = MONS[m[2].slice(0, 4).toLowerCase()] || MONS[m[2].slice(0, 3).toLowerCase()]; return mo ? okDate(m[3], mo, m[1]) : ""; }
+    if ((m = /^([A-Za-z]{3,9})[ .-](\d{1,2}),?[ .-](\d{2,4})/.exec(s))) { const mo = MONS[m[1].slice(0, 3).toLowerCase()]; return mo ? okDate(m[3], mo, m[2]) : ""; }
+    if ((m = /^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/.exec(s))) { /* Nigerian banks write day first; switch only when the day can't be a month */
+      return +m[2] > 12 && +m[1] <= 12 ? okDate(m[3], m[1], m[2]) : okDate(m[3], m[2], m[1]); }
+    return "";
+  }
+  function parseAmt(v){
+    if (v == null || v === "") return null; if (typeof v === "number") return isFinite(v) ? v : null;
+    let s = String(v).trim(); if (!s || s === "-" || s === "--") return null;
+    let neg = /^\(.*\)$/.test(s) || /^-/.test(s) || /\bdr\.?$/i.test(s) || /-$/.test(s);
+    s = s.replace(/\b(ngn|usd|naira|cr|dr)\b\.?/ig, "").replace(/[₦$€£,\s()]/g, "").replace(/-$/, "").replace(/^-/, "");
+    if (!/^\d*\.?\d+$/.test(s)) return null; const n = parseFloat(s); return isFinite(n) ? (neg ? -n : n) : null;
+  }
+  const R = {
+    date:/\bdate\b|^txn\s*dt$|^tran\s*dt$/i,
+    vdate:/value\s*date/i,
+    desc:/narration|description|details|remarks?|particulars|memo|transaction\s*type|beneficiary/i,
+    ref:/ref(erence)?|cheque|chq|instrument|session|transaction\s*id|trans\.?\s*id/i,
+    out:/debit|withdraw|money\s*out|paid\s*out|outflow|^dr\.?$|^debits?\s*\(/i,
+    inn:/credit|deposit|lodg|money\s*in\b|paid\s*in|inflow|^cr\.?$/i,
+    amt:/^amount|^amt\b|transaction\s*amount/i,
+    bal:/balance|^bal\b/i,
+    sign:/^(type|dr\s*\/\s*cr|d\s*\/\s*c|cr\s*\/\s*dr|debit\s*\/\s*credit|direction)$/i
+  };
+  function detect(rows){
+    let best = null;
+    for (let i = 0; i < Math.min(rows.length, 60); i++) {
+      const r = rows[i] || [], map = {}; let hits = 0;
+      r.forEach((c, j) => { const t = String(c ?? "").trim(); if (!t || t.length > 40) return;
+        const put = k => { if (map[k] == null) { map[k] = j; hits++; } };
+        if (R.vdate.test(t)) { if (map.vdate == null) map.vdate = j; return; }
+        if (R.bal.test(t)) return put("bal");
+        if (R.sign.test(t)) return put("sign");
+        if (R.out.test(t) && !R.inn.test(t)) return put("out");
+        if (R.inn.test(t) && !R.out.test(t)) return put("inn");
+        if (R.amt.test(t)) return put("amt");
+        if (R.date.test(t)) return put("date");
+        if (R.desc.test(t)) return put("desc");
+        if (R.ref.test(t)) return put("ref"); });
+      if (map.date == null && map.vdate != null) { map.date = map.vdate; hits++; }
+      const money = map.out != null || map.inn != null || map.amt != null;
+      if (map.date != null && money && hits >= 3 && (!best || hits > best.hits)) best = {hi:i, map, hits};
+    }
+    return best ? {hi:best.hi, map:best.map} : null;
+  }
+  /* rows below the header -> lines; a row with no date continues the narration above it */
+  function extract(rows, hi, map){
+    const lines = []; let opening = null, closing = null, last = null;
+    const cell = (r, k) => map[k] == null || map[k] === "" ? "" : r[+map[k]];
+    for (let i = hi + 1; i < rows.length; i++) {
+      const r = rows[i] || []; if (!r.some(c => String(c ?? "").trim())) continue;
+      const date = parseDate(cell(r, "date")), desc = String(cell(r, "desc") ?? "").replace(/\s+/g, " ").trim(), ref = String(cell(r, "ref") ?? "").trim();
+      let inA = parseAmt(cell(r, "inn")), outA = parseAmt(cell(r, "out")); const bal = parseAmt(cell(r, "bal"));
+      if (map.amt != null && map.amt !== "") { const a = parseAmt(cell(r, "amt")), sg = String(cell(r, "sign") ?? "").trim().toLowerCase();
+        if (a != null) { const isOut = sg ? /^(d|dr|debit|out|withdraw)/.test(sg) : a < 0; if (isOut) outA = Math.abs(a); else inA = Math.abs(a); } }
+      inA = inA ? Math.abs(inA) : 0; outA = outA ? Math.abs(outA) : 0;
+      if (/opening|brought\s*forward|b\/f|balance\s*b\/?f/i.test(desc) && !inA && !outA) { if (bal != null) opening = bal; continue; }
+      if (/closing|carried\s*forward|c\/f|total/i.test(desc) && !date) { if (bal != null) closing = bal; continue; }
+      if (!date) { if (last && desc && !inA && !outA) last.desc = (last.desc + " " + desc).trim(); continue; }
+      if (!inA && !outA) { if (bal != null && !lines.length) opening = bal; continue; }
+      last = {date, desc, ref, inAmt:Math.round(inA * 100) / 100, outAmt:Math.round(outA * 100) / 100, bal: bal == null ? null : bal};
+      lines.push(last);
+    }
+    /* statements listed newest first: put them in date order */
+    if (lines.length > 1 && lines[0].date > lines[lines.length - 1].date) lines.reverse();
+    if (closing == null) { const lb = [...lines].reverse().find(l => l.bal != null); if (lb) closing = lb.bal; }
+    if (opening == null && lines.length && lines[0].bal != null) opening = Math.round((lines[0].bal - lines[0].inAmt + lines[0].outAmt) * 100) / 100;
+    const ds = lines.map(l => l.date).sort();
+    lines.forEach((l, k) => { l.fp = [l.date, l.inAmt, l.outAmt, l.bal == null ? "" : l.bal, l.desc.slice(0, 40).toLowerCase()].join("|"); l.seq = k; });
+    return {lines, opening, closing, from:ds[0] || "", to:ds[ds.length - 1] || ""};
+  }
+  function csvRows(text){
+    const rows = []; let row = [], f = "", q = false; text = text.replace(/^﻿/, "");
+    const sep = (text.split("\n")[0].match(/;/g) || []).length > (text.split("\n")[0].match(/,/g) || []).length ? ";" : text.split("\n")[0].includes("\t") && !text.split("\n")[0].includes(",") ? "\t" : ",";
+    for (let i = 0; i < text.length; i++) { const c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+      else if (c === '"') q = true; else if (c === sep) { row.push(f); f = ""; } else if (c === "\n") { row.push(f.replace(/\r$/, "")); rows.push(row); row = []; f = ""; } else f += c; }
+    if (f || row.length) { row.push(f.replace(/\r$/, "")); rows.push(row); }
+    return rows;
+  }
+  /* PDF statements: rebuild the table from where each piece of text sits on the page */
+  async function pdfRows(buf){
+    await lib("pdf"); const pdf = await window.pdfjsLib.getDocument({data:buf}).promise; const out = []; let anchors = null;
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const tc = await (await pdf.getPage(p)).getTextContent(); const lines = [];
+      tc.items.forEach(it => { const s = String(it.str || "").trim(); if (!s) return; const x = it.transform[4], y = it.transform[5], w = it.width || s.length * 4;
+        let ln = lines.find(l => Math.abs(l.y - y) < 3); if (!ln) { ln = {y, items:[]}; lines.push(ln); } ln.items.push({s, x, w}); });
+      lines.sort((a, b) => b.y - a.y).forEach(l => {
+        l.items.sort((a, b) => a.x - b.x);
+        const merged = []; l.items.forEach(it => { const m = merged[merged.length - 1]; if (m && it.x - (m.x + m.w) < 4) { m.s += (it.x - (m.x + m.w) > 1 ? " " : "") + it.s; m.w = it.x + it.w - m.x; } else merged.push(Object.assign({}, it)); });
+        const txt = merged.map(m => m.s).join(" ");
+        const isHead = /date/i.test(txt) && /(debit|credit|withdraw|deposit|amount|money)/i.test(txt);
+        if (isHead) { anchors = merged.map(m => ({c:m.x + m.w / 2, l:m.x, r:m.x + m.w, s:m.s})); if (!out.some(r => r.__head)) { const h = anchors.map(a => a.s); h.__head = true; out.push(h); } return; }
+        if (!anchors) { out.push([txt]); return; }
+        const row = anchors.map(() => "");
+        merged.forEach(m => { const c = m.x + m.w / 2; let k = 0, bd = Infinity;
+          anchors.forEach((a, j) => { const d = c >= a.l - 6 && c <= a.r + 6 ? 0 : Math.min(Math.abs(c - a.c), Math.abs(m.x - a.l), Math.abs(m.x + m.w - a.r)); if (d < bd) { bd = d; k = j; } });
+          row[k] = row[k] ? row[k] + " " + m.s : m.s; });
+        out.push(row);
+      });
+    }
+    return out;
+  }
+  async function readFile(file){
+    const name = file.name || "", ext = (name.split(".").pop() || "").toLowerCase();
+    if (ext === "csv" || ext === "txt" || /text\/csv/.test(file.type)) return {rows:csvRows(await file.text()), kind:"CSV"};
+    if (ext === "pdf" || file.type === "application/pdf") return {rows:await pdfRows(await file.arrayBuffer()), kind:"PDF"};
+    await lib("xlsx"); const wb = window.XLSX.read(await file.arrayBuffer(), {type:"array", cellDates:true});
+    let rows = [], pick = null;
+    for (const n of wb.SheetNames) { const r = window.XLSX.utils.sheet_to_json(wb.Sheets[n], {header:1, raw:true, defval:""}); const d = detect(r); if (d && (!pick || r.length > rows.length)) { rows = r; pick = n; } }
+    if (!pick) rows = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw:true, defval:""});
+    return {rows, kind:"Excel", wb};
+  }
+  /* words in a narration that can name a person or company: drop bank jargon, numbers and short words */
+  const JUNK = /\b(trf|transfer|tran|trans|fip|nip|mob|mobile|ussd|web|frm|from|to|for|via|ref|nibss|inst|instant|payment|pymt|pmt|paid|pay|by|the|and|ltd|limited|plc|nig|nigeria|bank|gtb|gtbank|zenith|access|uba|fbn|first|fcmb|fidelity|sterling|wema|union|stanbic|ecobank|polaris|keystone|opay|palmpay|moniepoint|kuda|cr|dr|acct|account|a\/c|no|ngn|usd|pos|web|app|dt|ft|rev|ch|chg)\b/gi;
+  function words(s){ return String(s || "").toLowerCase().replace(/[^a-z\s]/g, " ").replace(JUNK, " ").split(/\s+/).filter(w => w.length > 2); }
+  function nameIn(narr, name){ const n = words(name); if (!n.length) return false; const w = new Set(words(narr)); const hit = n.filter(x => w.has(x)).length; return n.length === 1 ? hit === 1 && n[0].length > 3 : hit >= Math.min(2, n.length); }
+  return {lib, readFile, detect, extract, parseDate, parseAmt, csvRows, words, nameIn};
+})();
+
+/* ---------- bank statement: match lines to entries on this phone, explain the rest, add them as entries ---------- */
+let bOpen = "", bFiltV = "todo", bHowV = "transfer";
+const B_ST = {matched:["Recorded already", "var(--in)"], done:["Added", "var(--in)"], filled:["Filled in", "var(--accent)"], need:["Needs you", "var(--warn)"], ignored:["Ignored", "var(--muted)"]};
+const B_RULES = [
+  {re:/sms\s*(alert|charge|notification|fee)|alert\s*(charge|fee)|stamp\s*duty|\bemt\b|maint(enance)?\s*(fee|charge)|\bcot\b|commission\s*on\s*turnover|card\s*(maint|fee)|token\s*fee|(nip|transfer|trf)\s*(fee|charge|chg)|bank\s*charge|service\s*charge|\bcharges?\b/i, dir:"out", cat:"bank", why:"Bank charge"},
+  {re:/\bvat\b/i, dir:"out", max:20000, cat:"bank", why:"VAT on a bank charge"},
+  {re:/salar(y|ies)|\bwages\b|payroll/i, dir:"out", cat:"salary", why:"Salary payment"},
+  {re:/airtime|data\s*(bundle|sub)|\bmtn\b|\bairtel\b|\bglo\b|9mobile/i, dir:"out", cat:"phone", why:"Airtime or data"},
+  {re:/fuel|diesel|petrol|filling\s*station/i, dir:"out", cat:"fuel", why:"Fuel"}
+];
+function bCur(){ return (S.banks || []).find(b => b.id === bOpen); }
+const bDir = l => l.inAmt ? "in" : "out", bAmt = l => r2(l.inAmt || l.outAmt);
+function bState(l){ if (l.ign) return "ignored"; if (l.entryId) return "done"; if (l.mt) return "matched"; if (l.cat && l.cat !== "") return "filled"; return "need"; }
+function bDays(a, b){ return Math.abs((new Date(a + "T12:00:00") - new Date(b + "T12:00:00")) / 864e5); }
+function bMatch(st){
+  const used = new Set(); (S.banks || []).forEach(b => b.lines.forEach(l => { if (l.mt) used.add(l.mt); if (l.entryId) used.add(l.entryId); }));
+  const hist = {}; S.entries.forEach(e => { if (!e.party || !e.cat || e.cat === "other") return; const k = e.party.trim(), o = hist[k] || (hist[k] = {}), d = o[e.dir] || (o[e.dir] = {}); d[e.cat] = (d[e.cat] || 0) + 1; });
+  const names = Object.keys(hist).concat(S.entries.map(e => (e.party || "").trim()).filter(Boolean)).filter((v, i, a) => v.length > 2 && a.indexOf(v) === i);
+  for (const l of st.lines) {
+    if (l.ign || l.entryId || l.mt || l.by === "you") continue;
+    const dir = bDir(l), amt = bAmt(l);
+    const hit = S.entries.filter(e => !used.has(e.id) && e.dir === dir && e.how !== "cash" && (e.ccy || "NGN") === "NGN" && Math.abs(num(e.amount) - amt) < 0.01 && bDays(e.date, l.date) <= 5).sort((a, b) => bDays(a.date, l.date) - bDays(b.date, l.date))[0];
+    if (hit) { l.mt = hit.id; used.add(hit.id); l.cat = ""; l.why = "Recorded on " + fmtDay(hit.date) + ": " + catLabel(hit); continue; }
+    l.cat = ""; l.why = "";
+    const rule = B_RULES.find(r => r.dir === dir && r.re.test(l.desc + " " + l.ref) && (!r.max || amt <= r.max));
+    if (rule) { l.cat = rule.cat; l.why = rule.why; continue; }
+    const who = names.find(n => BKX.nameIn(l.desc, n));
+    if (who) { l.party = l.party || who; const d = (hist[who] || {})[dir];
+      if (d) { const tot = Object.values(d).reduce((s, n) => s + n, 0), [top, n] = Object.entries(d).sort((a, b) => b[1] - a[1])[0];
+        if (n / tot >= 0.6 && catOf(dir, top)) { l.cat = top; l.why = "Same as " + n + " earlier entr" + (n === 1 ? "y" : "ies") + " with " + who; } } }
+  }
+}
+function bCounts(st){ const n = {matched:0, done:0, filled:0, need:0, ignored:0}; st.lines.forEach(l => n[bState(l)]++); return n; }
+$("bHow").addEventListener("click", e => { const b = e.target.closest("[data-k]"); if (!b) return; bHowV = b.dataset.k; [...$("bHow").children].forEach(x => x.setAttribute("aria-pressed", String(x === b))); });
+const bMsg = (t, c) => { $("bMsg").className = "msg " + (c || ""); $("bMsg").textContent = t; };
+$("bFile").addEventListener("change", async () => {
+  const f = $("bFile").files[0]; $("bFile").value = ""; if (!f) return; bMsg("Reading " + f.name + "…");
+  try { const r = await BKX.readFile(f), det = BKX.detect(r.rows);
+    if (!det) { bMsg("The columns in this statement weren't recognised. Download it from the bank app as Excel or CSV and try again, or ask the accountant to use the Accounting System.", "err"); return; }
+    const ex = BKX.extract(r.rows, det.hi, det.map); if (!ex.lines.length) { bMsg("No money lines were found in that file.", "err"); return; }
+    const seen = new Set(); (S.banks || []).forEach(b => b.lines.forEach(l => seen.add(l.fp)));
+    const st = {id:"b" + newId(), name:f.name.replace(/\.[^.]+$/, ""), how:bHowV, from:ex.from, to:ex.to, opening:ex.opening, closing:ex.closing, importedAt:Date.now(),
+      lines: ex.lines.slice(0, 1500).map((l, k) => Object.assign({id:"L" + String(k + 1).padStart(4, "0"), cat:"", party:"", note:"", why:"", by:""}, l, seen.has(l.fp) ? {ign:true, why:"Already in an earlier statement"} : {}))};
+    bMatch(st); S.banks = [st].concat(S.banks || []).slice(0, 6); save(); bOpen = st.id; bFiltV = "todo";
+    const n = bCounts(st); bMsg(st.lines.length + " lines read: " + n.matched + " recorded already, " + n.filled + " filled in, " + n.need + " need you" + (n.ignored ? ", " + n.ignored + " already uploaded before" : "") + ".", "ok"); renderBank();
+  } catch(e){ bMsg(e && e.message === "load" ? "Reading statements needs internet the first time. Connect once and try again." : "That file couldn't be read. Download the statement as Excel or CSV and try again.", "err"); }
+});
+function catSelect(l){ const list = CATS[bDir(l)]; return '<select class="in" data-bc="cat" style="padding:8px"><option value="">What was it for?</option>' + list.map(c => '<option value="' + c[0] + '"' + (l.cat === c[0] ? " selected" : "") + '>' + esc(c[1]) + '</option>').join("") + '</select>'; }
+function renderBank(){
+  const st = bCur(); $("bCur").hidden = !st;
+  $("bOld").innerHTML = (S.banks || []).filter(b => b.id !== bOpen).map(b => { const n = bCounts(b); return '<button type="button" class="viewlink" data-bo="' + esc(b.id) + '"><span class="mono" aria-hidden="true">₦</span><span><b>' + esc(b.name) + '</b><small>' + esc(b.from) + ' to ' + esc(b.to) + ' · ' + n.need + ' need you · ' + n.done + ' added</small></span><span class="muted" aria-hidden="true">›</span></button>'; }).join("");
+  if (!st) return;
+  const n = bCounts(st), ready = st.lines.filter(l => bState(l) === "filled").length;
+  $("bSum").innerHTML = '<div><span class="muted" style="font-size:12px">Recorded already</span><b style="color:var(--in)">' + (n.matched + n.done) + '</b></div><div><span class="muted" style="font-size:12px">Filled in</span><b>' + n.filled + '</b></div><div><span class="muted" style="font-size:12px">Need you</span><b style="color:var(--warn)">' + n.need + '</b></div>';
+  const fb = (k, t, c) => '<button type="button" data-bf="' + k + '" aria-pressed="' + (bFiltV === k) + '">' + t + ' (' + c + ')</button>';
+  $("bFilt").innerHTML = fb("todo", "To do", n.need + n.filled) + fb("need", "Need you", n.need) + fb("matched", "Recorded", n.matched + n.done) + fb("all", "All", st.lines.length);
+  $("bAdd").disabled = !ready; $("bAdd").textContent = ready ? "Add " + ready + " line" + (ready === 1 ? "" : "s") + " as entries" : "Nothing ready to add";
+  const rows = st.lines.filter(l => { const s = bState(l); return bFiltV === "all" || (bFiltV === "todo" ? s === "need" || s === "filled" : bFiltV === "matched" ? s === "matched" || s === "done" : s === bFiltV); });
+  $("bList").innerHTML = rows.slice(0, 200).map(l => { const s = bState(l), [lab, col] = B_ST[s], open = s === "need" || s === "filled", d = bDir(l);
+    return '<div class="card" data-bl="' + esc(l.id) + '" style="display:grid;gap:8px;padding:12px">' +
+      '<div class="top" style="align-items:flex-start"><div style="min-width:0"><b style="display:block;overflow-wrap:anywhere">' + esc(l.desc || "No narration") + '</b><small class="muted">' + esc(fmtDay(l.date)) + (l.ref ? " · " + esc(l.ref) : "") + '</small></div>' +
+      '<div style="text-align:right;white-space:nowrap"><b class="mono" style="color:' + (d === "in" ? "var(--in)" : "var(--out)") + '">' + (d === "in" ? "+" : "−") + esc(money(bAmt(l))) + '</b><small style="display:block;font-weight:600;color:' + col + '">' + lab + '</small></div></div>' +
+      (l.why ? '<small class="muted">' + esc(l.why) + '</small>' : '') +
+      (open ? catSelect(l) + '<input class="in" data-bc="party" value="' + esc(l.party) + '" placeholder="' + (d === "in" ? "Received from" : "Paid to") + ' (name)" style="padding:8px">' +
+        '<input class="in" data-bc="note" value="' + esc(l.note) + '" placeholder="Explain it in a few words" style="padding:8px">' : '') +
+      (s !== "done" ? '<label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)"><input type="checkbox" data-bc="ign"' + (l.ign ? " checked" : "") + '> Ignore this line</label>' : '') + '</div>'; }).join("") ||
+    '<div class="empty">Nothing here. ' + (bFiltV === "todo" ? "Every line is recorded or ignored." : "") + '</div>';
+}
+$("bFilt").addEventListener("click", e => { const b = e.target.closest("[data-bf]"); if (!b) return; bFiltV = b.dataset.bf; renderBank(); });
+$("bOld").addEventListener("click", e => { const b = e.target.closest("[data-bo]"); if (!b) return; bOpen = b.dataset.bo; bFiltV = "todo"; bMsg(""); renderBank(); window.scrollTo(0, 0); });
+$("bList").addEventListener("change", e => {
+  const st = bCur(), card = e.target.closest("[data-bl]"), k = e.target.dataset.bc; if (!st || !card || !k) return; const l = st.lines.find(x => x.id === card.dataset.bl); if (!l) return;
+  if (k === "ign") l.ign = e.target.checked; else { l[k] = e.target.value.trim(); if (k === "cat") { l.by = "you"; l.why = ""; } }
+  save(); if (k === "ign" || k === "cat") renderBank();
+});
+$("bAdd").onclick = () => {
+  const st = bCur(); if (!st) return; let n = 0;
+  for (const l of st.lines) { if (bState(l) !== "filled") continue; const c = catOf(bDir(l), l.cat); if (!c) continue;
+    const e = {id:newId(), dir:bDir(l), date:l.date, time:"", amount:bAmt(l), ccy:"NGN", rate:1, how:st.how || "transfer", cat:l.cat, party:l.party || "", desc:[l.note, l.desc].filter(Boolean).join(" · ").slice(0, 200), ref:l.ref || "", files:[], by:S.settings.name || "", source:"bank", createdAt:Date.now(), updatedAt:Date.now()};
+    S.entries.push(e); l.entryId = e.id; n++; }
+  save(); bMsg(n + " entr" + (n === 1 ? "y" : "ies") + " added. Send them to the books from the home screen.", "ok"); renderBank();
+};
+$("bXls").onclick = async () => {
+  const st = bCur(); if (!st) return; bMsg("Preparing Excel file…");
+  try { await BKX.lib("xlsx"); const X = window.XLSX;
+    const head = ["Line ID","Date","Narration","Reference","Money in","Money out","Status","Recorded as / why filled in","What for (pick from Categories)","Name","Your explanation","Ignore (Y)"];
+    const body = st.lines.map(l => { const s = bState(l), c = catOf(bDir(l), l.cat); return [l.id, l.date, l.desc, l.ref, l.inAmt || null, l.outAmt || null, B_ST[s][0], l.why || "", c ? c[1] : "", l.party || "", l.note || "", l.ign ? "Y" : ""]; });
+    const ws = X.utils.aoa_to_sheet([["WASSIB GLOBAL LIMITED · bank statement to explain"], [st.name + " · " + st.from + " to " + st.to + " · " + (st.how === "opay" ? "OPay / mobile money" : "Bank account")], ["Fill in “What for”, the name and your explanation for lines marked Needs you. Keep the Line ID column as it is."], []].concat([head], body));
+    ws["!cols"] = [9, 11, 44, 14, 13, 13, 16, 34, 30, 22, 40, 10].map(w => ({wch:w}));
+    const cats = X.utils.aoa_to_sheet([["Money out: what for"]].concat(CATS.out.map(c => [c[1]]), [[], ["Money in: what for"]], CATS.in.map(c => [c[1]]))); cats["!cols"] = [{wch:32}];
+    const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, ws, "Lines"); X.utils.book_append_sheet(wb, cats, "Categories");
+    const name = "bank-statement-to-explain-" + st.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase() + ".xlsx";
+    saveFile(new Blob([X.write(wb, {bookType:"xlsx", type:"array"})], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}), name); bMsg("Saved to Downloads: " + name, "ok");
+  } catch(e){ bMsg("The Excel file needs internet the first time. Connect once and try again.", "err"); }
+};
+$("bXlsIn").addEventListener("change", async () => {
+  const st = bCur(), f = $("bXlsIn").files[0]; $("bXlsIn").value = ""; if (!st || !f) return; bMsg("Reading " + f.name + "…");
+  try { await BKX.lib("xlsx"); const X = window.XLSX, wb = X.read(await f.arrayBuffer(), {type:"array"}); let rows = null, hi = -1;
+    for (const n of wb.SheetNames) { const r = X.utils.sheet_to_json(wb.Sheets[n], {header:1, raw:false, defval:""}); const i = r.findIndex(x => x.some(c => /^line id$/i.test(String(c).trim()))); if (i >= 0) { rows = r; hi = i; break; } }
+    if (!rows) throw new Error("This isn't the sheet downloaded from this app (no Line ID column).");
+    const H = rows[hi].map(c => String(c).trim().toLowerCase()), col = re => H.findIndex(h => re.test(h)), ci = {id:col(/^line id$/), cat:col(/^what for/), name:col(/^name$/), note:col(/explanation/), ign:col(/^ignore/)};
+    let upd = 0, bad = 0;
+    for (const r of rows.slice(hi + 1)) { const l = st.lines.find(x => x.id === String(r[ci.id] || "").trim()); if (!l) continue; const s = bState(l); if (s === "done" || s === "matched") continue;
+      const g = k => ci[k] >= 0 ? String(r[ci[k]] ?? "").trim() : "", cl = g("cat").toLowerCase(); let ch = false;
+      if (cl) { const c = CATS[bDir(l)].find(x => x[1].toLowerCase() === cl) || CATS[bDir(l)].find(x => x[1].toLowerCase().startsWith(cl.slice(0, 6))); if (c) { if (c[0] !== l.cat) { l.cat = c[0]; l.by = "you"; l.why = ""; ch = true; } } else bad++; }
+      if (g("name") && g("name") !== l.party) { l.party = g("name"); ch = true; }
+      if (g("note") !== (l.note || "")) { l.note = g("note"); ch = true; }
+      const ig = /^y(es)?$/i.test(g("ign")); if (ig !== !!l.ign) { l.ign = ig; ch = true; }
+      if (ch) upd++; }
+    save(); const n = bCounts(st); bMsg(upd + " line" + (upd === 1 ? "" : "s") + " updated" + (bad ? " · " + bad + " had a “What for” that isn't in the Categories list" : "") + ". " + n.filled + " ready to add, " + n.need + " still need you.", bad ? "err" : "ok"); renderBank();
+  } catch(e){ bMsg(e && e.message && e.message !== "load" ? e.message : "That file couldn't be read.", "err"); }
+});
+$("bDel").onclick = function(){ arm(this, "Tap again to remove", () => { S.banks = (S.banks || []).filter(b => b.id !== bOpen); bOpen = ""; save(); bMsg("Statement removed from this phone. Entries already added are kept."); renderBank(); }); };
+$("goBank").onclick = () => { bMsg(""); if (!bOpen && (S.banks || [])[0]) bOpen = S.banks[0].id; openSheet("bank"); renderBank(); if (navigator.onLine) { BKX.lib("xlsx").catch(() => {}); } };
+$("bClose").onclick = back;
 
 /* ---------- settings ---------- */
 $("openSet").onclick = () => { $("stName").value = S.settings.name || ""; $("stUrl").value = S.settings.url || DEFAULT_URL; $("stRate").value = S.settings.rate || ""; $("stMsg").textContent = ""; openSheet("settings"); };
